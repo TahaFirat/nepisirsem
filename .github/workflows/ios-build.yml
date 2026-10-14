@@ -12,10 +12,10 @@ jobs:
     timeout-minutes: 45
     env:
       APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID || 'N7XD86ZSMH' }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD || 'LockIn2026!' }}
 
     steps:
       - name: 1. Checkout Repository
@@ -37,7 +37,6 @@ jobs:
         run: npx cap sync ios
 
       - name: 6. Install Apple Distribution Certificate & Auto-Provision Profile
-        if: env.BUILD_CERTIFICATE_BASE64 != ''
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 12)
@@ -45,22 +44,35 @@ jobs:
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
-          security import $RUNNER_TEMP/certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | sed -e 's/^[[:space:]]*//' -e 's/"//g')
+          if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
+            echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          elif [ -f "apple_certs/certificate.p12" ]; then
+            cp apple_certs/certificate.p12 $RUNNER_TEMP/certificate.p12
+          fi
+
+          if [ -f "$RUNNER_TEMP/certificate.p12" ]; then
+            security import $RUNNER_TEMP/certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security list-keychain -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | sed -e 's/^[[:space:]]*//' -e 's/"//g')
+            echo "HAS_CERT=true" >> $GITHUB_ENV
+          fi
 
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
 
+          # Resolve API key from secret or apple_certs/AuthKey_N7XD86ZSMH.p8
+          if [ -z "$APP_STORE_CONNECT_API_KEY" ] && [ -f "apple_certs/AuthKey_N7XD86ZSMH.p8" ]; then
+            export APP_STORE_CONNECT_API_KEY="$(cat apple_certs/AuthKey_N7XD86ZSMH.p8)"
+          fi
+
           # If no .mobileprovision is in repo, auto-fetch or auto-create via App Store Connect API
           PROFILE_FILE=$(ls ios/App/*.mobileprovision apple_certs/*.mobileprovision 2>/dev/null | head -n 1 || true)
-          if [ -z "$PROFILE_FILE" ] && [ -n "$APP_STORE_CONNECT_API_KEY" ]; then
+          if [ -z "$PROFILE_FILE" ] && [ -n "$APP_STORE_CONNECT_API_KEY" ] && [ -n "$APP_STORE_CONNECT_ISSUER_ID" ]; then
             echo "Auto-provisioning Bundle ID & App Store Profile via App Store Connect API..."
             pip3 install --quiet pyjwt cryptography requests
             python3 - << 'PYEOF'
           import os, re, time, base64, jwt, requests
 
-          key_id = os.environ.get('APP_STORE_CONNECT_KEY_ID', '').strip()
+          key_id = os.environ.get('APP_STORE_CONNECT_KEY_ID', 'N7XD86ZSMH').strip()
           issuer_id = os.environ.get('APP_STORE_CONNECT_ISSUER_ID', '').strip()
           raw_key = os.environ.get('APP_STORE_CONNECT_API_KEY', '').strip()
           b64 = re.sub(r'-----BEGIN [^-]+-----|-----END [^-]+-----|\s+', '', raw_key)
@@ -93,8 +105,6 @@ jobs:
               if cr.status_code in (200, 201):
                   bundle_id_res = cr.json()['data']['id']
                   print("Bundle ID registered:", bundle_id_res)
-              else:
-                  print("Bundle ID registration response:", cr.text)
 
           # 2. Find Distribution Certificate
           cr = requests.get('https://api.appstoreconnect.apple.com/v1/certificates', headers=headers)
@@ -174,7 +184,7 @@ jobs:
       - name: 7. Build Xcode Project Archive
         run: |
           cd ios/App
-          if [ -n "$BUILD_CERTIFICATE_BASE64" ] && [ -n "$PROFILE_NAME" ]; then
+          if [ "$HAS_CERT" = "true" ] && [ -n "$PROFILE_NAME" ]; then
             echo "Building with official Apple Code Signing (Build #${{ github.run_number }})..."
             xcodebuild -project App.xcodeproj \
                        -scheme App \
@@ -189,7 +199,7 @@ jobs:
                        clean archive \
                        -archivePath ./build/App.xcarchive
           else
-            echo "Building unsigned archive fallback..."
+            echo "Building archive (unsigned fallback until .mobileprovision or APP_STORE_CONNECT_ISSUER_ID is provided)..."
             xcodebuild -project App.xcodeproj \
                        -scheme App \
                        -destination 'generic/platform=iOS' \
@@ -204,7 +214,7 @@ jobs:
       - name: 8. Export Official Signed App IPA
         run: |
           cd ios/App
-          if [ -f "exportOptions.plist" ] && [ -n "$BUILD_CERTIFICATE_BASE64" ] && [ -n "$PROFILE_NAME" ]; then
+          if [ -f "exportOptions.plist" ] && [ "$HAS_CERT" = "true" ] && [ -n "$PROFILE_NAME" ]; then
             echo "Exporting signed App.ipa using exportOptions.plist..."
             xcodebuild -exportArchive \
                        -archivePath ./build/App.xcarchive \
@@ -233,9 +243,13 @@ jobs:
           retention-days: 14
 
       - name: 10. Upload to Apple TestFlight / App Store Connect
-        if: env.APP_STORE_CONNECT_API_KEY != ''
+        if: env.APP_STORE_CONNECT_ISSUER_ID != ''
         run: |
           set -o pipefail
+
+          if [ -z "$APP_STORE_CONNECT_API_KEY" ] && [ -f "apple_certs/AuthKey_N7XD86ZSMH.p8" ]; then
+            export APP_STORE_CONNECT_API_KEY="$(cat apple_certs/AuthKey_N7XD86ZSMH.p8)"
+          fi
 
           KEY_ID=$(echo "$APP_STORE_CONNECT_KEY_ID" | tr -d '[:space:]')
           ISSUER_ID=$(echo "$APP_STORE_CONNECT_ISSUER_ID" | tr -d '[:space:]')
