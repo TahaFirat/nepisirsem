@@ -3,8 +3,15 @@ import { INGREDIENTS_DATA } from '../data/ingredients';
 
 // Her evde varsayılan olarak bulunan temel malzemeler (Su, Tuz, Yağ, Salça, Un, Şeker, Temel Baharatlar)
 const STAPLE_NAMES = new Set(
-  INGREDIENTS_DATA.filter((i) => i.isStaple).map((i) => i.name.toLowerCase())
+  INGREDIENTS_DATA.filter((i) => i.isStaple).map((i) => i.name.toLowerCase().trim())
 );
+
+// Önceden hesaplanmış malzeme eş anlamlılar (alias) tablosu — her tıklamada tekrar dizi oluşturulmasını önler
+const PRECOMPUTED_ALIAS_GROUPS: Array<{ mainName: string; aliases: string[] }> =
+  INGREDIENTS_DATA.map((item) => ({
+    mainName: item.name.toLowerCase().trim(),
+    aliases: (item.aliases || []).map((a) => a.toLowerCase().trim()),
+  }));
 
 // Yemeğin ana adında geçmiyorsa süsleme/lezzet verici olarak kabul edilen,
 // evde olmasa bile yemeğin pişirilmesine engel olmayan yardımcı malzemeler
@@ -84,28 +91,72 @@ export function isIngredientEffectivelyOptional(
   return false;
 }
 
+interface CachedIngredientMeta {
+  ing: RecipeIngredient;
+  ingName: string;
+  optionalForDish: boolean;
+  isStaple: boolean;
+  isWaterOrSalt: boolean;
+}
+
+// Tarif başına malzeme analizini önbelleğe alır (605 tarif x ~8 malzeme = ~5000 string işlemini sıfıra indirir)
+const RECIPE_META_CACHE = new WeakMap<Recipe, CachedIngredientMeta[]>();
+
+function getRecipeIngredientMeta(recipe: Recipe): CachedIngredientMeta[] {
+  let cached = RECIPE_META_CACHE.get(recipe);
+  if (!cached) {
+    cached = recipe.ingredients.map((ing) => {
+      const ingName = ing.name.toLowerCase().trim();
+      return {
+        ing,
+        ingName,
+        optionalForDish: isIngredientEffectivelyOptional(ing, recipe.title),
+        isStaple: STAPLE_NAMES.has(ingName),
+        isWaterOrSalt: ingName === 'su' || ingName === 'tuz',
+      };
+    });
+    RECIPE_META_CACHE.set(recipe, cached);
+  }
+  return cached;
+}
+
 /**
  * Kullanıcının seçtiği malzemelerle (pantry) tarifleri karşılaştırır,
- * eksikleri, eşleşme yüzdesini ve hemen pişirilebilirlik durumunu %100 doğru hesaplar.
+ * eksikleri, eşleşme yüzdesini ve hemen pişirilebilirlik durumunu %100 doğru ve anlık hesaplar.
  */
 export function matchRecipesWithPantry(
   recipes: Recipe[],
   pantryItems: string[],
   assumeBasicStaples: boolean = false
 ): MatchedRecipe[] {
-  const normalizedPantry = new Set(pantryItems.map((i) => i.toLowerCase().trim()));
+  const normalizedPantry = new Set<string>();
+  for (let i = 0; i < pantryItems.length; i++) {
+    normalizedPantry.add(pantryItems[i].toLowerCase().trim());
+  }
 
   // Eş anlamlıları da kilere dahil et (Örn: 'bulgur' <-> 'pilavlık bulgur', 'salça' <-> 'biber salçası')
-  INGREDIENTS_DATA.forEach((item) => {
-    const mainName = item.name.toLowerCase();
-    const aliases = (item.aliases || []).map((a) => a.toLowerCase());
-    if (normalizedPantry.has(mainName)) {
-      aliases.forEach((a) => normalizedPantry.add(a));
-    } else if (aliases.some((a) => normalizedPantry.has(a))) {
-      normalizedPantry.add(mainName);
-      aliases.forEach((a) => normalizedPantry.add(a));
+  for (let i = 0; i < PRECOMPUTED_ALIAS_GROUPS.length; i++) {
+    const group = PRECOMPUTED_ALIAS_GROUPS[i];
+    if (normalizedPantry.has(group.mainName)) {
+      for (let j = 0; j < group.aliases.length; j++) {
+        normalizedPantry.add(group.aliases[j]);
+      }
+    } else {
+      let hasAlias = false;
+      for (let j = 0; j < group.aliases.length; j++) {
+        if (normalizedPantry.has(group.aliases[j])) {
+          hasAlias = true;
+          break;
+        }
+      }
+      if (hasAlias) {
+        normalizedPantry.add(group.mainName);
+        for (let j = 0; j < group.aliases.length; j++) {
+          normalizedPantry.add(group.aliases[j]);
+        }
+      }
     }
-  });
+  }
 
   // Pratik Türk mutfağı ikameleri (Örn: sıvı yağ veya zeytinyağı veya tereyağı varsa yağ ihtiyacı karşılanır)
   if (
@@ -128,25 +179,27 @@ export function matchRecipesWithPantry(
     normalizedPantry.add('bulgur');
   }
 
-  const matchedList: MatchedRecipe[] = recipes.map((recipe) => {
+  const matchedList: MatchedRecipe[] = new Array(recipes.length);
+
+  for (let r = 0; r < recipes.length; r++) {
+    const recipe = recipes[r];
+    const metas = getRecipeIngredientMeta(recipe);
     const usedIngredients: RecipeIngredient[] = [];
     const missingIngredients: RecipeIngredient[] = [];
     const stapleIngredients: RecipeIngredient[] = [];
 
-    recipe.ingredients.forEach((ing) => {
-      const ingName = ing.name.toLowerCase().trim();
-      const optionalForDish = isIngredientEffectivelyOptional(ing, recipe.title);
-
-      if (normalizedPantry.has(ingName) || ingName === 'su' || ingName === 'tuz') {
-        usedIngredients.push(ing);
-      } else if (optionalForDish) {
-        stapleIngredients.push(ing);
-      } else if (assumeBasicStaples && STAPLE_NAMES.has(ingName)) {
-        stapleIngredients.push(ing);
+    for (let i = 0; i < metas.length; i++) {
+      const meta = metas[i];
+      if (meta.isWaterOrSalt || normalizedPantry.has(meta.ingName)) {
+        usedIngredients.push(meta.ing);
+      } else if (meta.optionalForDish) {
+        stapleIngredients.push(meta.ing);
+      } else if (assumeBasicStaples && meta.isStaple) {
+        stapleIngredients.push(meta.ing);
       } else {
-        missingIngredients.push(ing);
+        missingIngredients.push(meta.ing);
       }
-    });
+    }
 
     const coreRequiredCount = Math.max(
       1,
@@ -165,7 +218,7 @@ export function matchRecipesWithPantry(
 
     const canCookImmediately = missingIngredients.length === 0;
 
-    return {
+    matchedList[r] = {
       recipe,
       usedIngredients,
       missingIngredients,
@@ -173,7 +226,7 @@ export function matchRecipesWithPantry(
       matchPercentage,
       canCookImmediately,
     };
-  });
+  }
 
   // Sıralama:
   // 1. Önce hemen pişirilebilir olanlar (Eksiksizler)

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import {
   ChefHat,
@@ -19,6 +19,10 @@ import {
   Share2,
   UtensilsCrossed,
   ChevronRight,
+  Info,
+  X,
+  ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 import {
   INGREDIENTS_DATA,
@@ -154,6 +158,120 @@ const CITY_KEYWORDS = [
   'artvin',
 ];
 
+interface IngredientChipProps {
+  name: string;
+  emoji: string;
+  isSelected: boolean;
+  onToggle: (name: string) => void;
+}
+
+const IngredientChip = React.memo<IngredientChipProps>(
+  ({ name, emoji, isSelected, onToggle }) => {
+    const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+    return (
+      <button
+        type="button"
+        className={`ingredient-chip-btn ${isSelected ? 'selected' : ''}`}
+        onClick={() => onToggle(name)}
+      >
+        <span className="ing-emoji">{emoji}</span>
+        <span className="ing-label">{formattedName}</span>
+        <span className="ing-check">
+          {isSelected ? <Check size={14} strokeWidth={2.6} /> : <Plus size={14} strokeWidth={2.4} />}
+        </span>
+      </button>
+    );
+  }
+);
+
+interface RecipeCardItemProps {
+  matched: MatchedRecipe;
+  isFav: boolean;
+  globalServings: number;
+  onSelect: (matched: MatchedRecipe) => void;
+  onToggleFav: (id: string) => void;
+}
+
+const RecipeCardItem = React.memo<RecipeCardItemProps>(
+  ({ matched, isFav, globalServings, onSelect, onToggleFav }) => {
+    const { recipe, missingIngredients, canCookImmediately } = matched;
+
+    return (
+      <article
+        className={`recipe-card ${canCookImmediately ? 'ready-card' : ''}`}
+        onClick={() => onSelect(matched)}
+      >
+        <DishVisualHeader
+          title={recipe.title}
+          category={recipe.category}
+          emoji={recipe.emoji}
+          height={176}
+          className="recipe-card-media"
+        >
+          <div className="recipe-card-badges">
+            {canCookImmediately ? (
+              <span className="status-pill ready">
+                <CheckCircle2 size={13} /> Hemen Pişir
+              </span>
+            ) : (
+              <span className="status-pill missing">
+                <AlertCircle size={13} /> {missingIngredients.length} Eksik
+              </span>
+            )}
+          </div>
+
+          {recipe.countryLabel && (
+            <span className="country-origin-badge">{recipe.countryLabel}</span>
+          )}
+
+          <button
+            type="button"
+            className={`card-fav-btn ${isFav ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFav(recipe.id);
+            }}
+            aria-label="Favorilere ekle"
+          >
+            <Heart size={16} fill={isFav ? '#E11D48' : 'none'} />
+          </button>
+        </DishVisualHeader>
+
+        <div className="recipe-card-content">
+          <h3 className="recipe-card-title">{recipe.title}</h3>
+
+          <div className="recipe-meta-row">
+            <span>
+              <Clock size={13} /> {recipe.prepTime + recipe.cookTime} dk
+            </span>
+            <span>
+              <Flame size={13} /> {recipe.caloriesPerServing} kcal
+            </span>
+            <span className="portion-tag">{globalServings} Kişilik</span>
+          </div>
+
+          {canCookImmediately ? (
+            <div className="ready-status-line">
+              <Check size={14} /> Tüm malzemeler evinizde hazır
+            </div>
+          ) : (
+            <div className="missing-preview-line">
+              <span>Eksik: </span>
+              <strong>
+                {missingIngredients
+                  .slice(0, 3)
+                  .map((m) => m.name)
+                  .join(', ')}
+                {missingIngredients.length > 3 && ` +${missingIngredients.length - 3}`}
+              </strong>
+            </div>
+          )}
+        </div>
+      </article>
+    );
+  }
+);
+
 export function App() {
   const [pantry, setPantry] = useState<string[]>(() => {
     const saved = localStorage.getItem('nepisirsem_pantry_v2');
@@ -195,62 +313,105 @@ export function App() {
   const [selectedMatchedRecipe, setSelectedMatchedRecipe] =
     useState<MatchedRecipe | null>(null);
   const [menuSeed, setMenuSeed] = useState<number>(0);
+  const [shoppingCopiedToast, setShoppingCopiedToast] = useState<boolean>(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setVisibleCount(24);
   }, [selectedRecipeCat, cuisineFilter, selectedCity, onlyReadyToCook, recipeSearch]);
 
-  const updatePantry = (newPantry: string[]) => {
-    setPantry(newPantry);
-    localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(newPantry));
-  };
+  // O(1) hızlı erişim kümeleri
+  const pantrySet = useMemo(
+    () => new Set(pantry.map((item) => item.toLowerCase())),
+    [pantry]
+  );
 
-  const toggleIngredient = (name: string) => {
+  const favoritesSet = useMemo(() => new Set(favorites), [favorites]);
+
+  const toggleIngredient = useCallback((name: string) => {
     const lower = name.toLowerCase();
-    if (pantry.includes(lower)) {
-      updatePantry(pantry.filter((item) => item !== lower));
-    } else {
-      updatePantry([...pantry, lower]);
-    }
-  };
+    setPantry((prev) => {
+      const next = prev.includes(lower)
+        ? prev.filter((item) => item !== lower)
+        : [...prev, lower];
+      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
-  const applyPreset = (items: string[]) => {
-    const merged = Array.from(new Set([...pantry, ...items.map((i) => i.toLowerCase())]));
-    updatePantry(merged);
-  };
+  const applyPreset = useCallback((items: string[]) => {
+    setPantry((prev) => {
+      const merged = Array.from(new Set([...prev, ...items.map((i) => i.toLowerCase())]));
+      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
 
-  const selectAllVisibleIngredients = () => {
+  const filteredIngredients = useMemo(() => {
+    return INGREDIENTS_DATA.filter((item) => {
+      if (selectedIngredientCat !== 'tumu') {
+        if (selectedIngredientCat === 'temel') {
+          if (item.category !== 'temel' && !item.isStaple) return false;
+        } else if (item.category !== selectedIngredientCat) {
+          return false;
+        }
+      }
+      if (ingredientSearch.trim()) {
+        const q = ingredientSearch.toLowerCase();
+        const inMain = item.name.toLowerCase().includes(q);
+        const inAlias = item.aliases?.some((a) => a.toLowerCase().includes(q));
+        return inMain || inAlias;
+      }
+      return true;
+    });
+  }, [selectedIngredientCat, ingredientSearch]);
+
+  const selectAllVisibleIngredients = useCallback(() => {
     const visibleNames = filteredIngredients.map((i) => i.name.toLowerCase());
-    const merged = Array.from(new Set([...pantry, ...visibleNames]));
-    updatePantry(merged);
-  };
+    setPantry((prev) => {
+      const merged = Array.from(new Set([...prev, ...visibleNames]));
+      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(merged));
+      return merged;
+    });
+  }, [filteredIngredients]);
 
-  const clearPantry = () => {
-    updatePantry(['su', 'tuz']);
-  };
+  const clearPantry = useCallback(() => {
+    const reset = ['su', 'tuz'];
+    setPantry(reset);
+    localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(reset));
+  }, []);
 
-  const toggleFavorite = (recipeId: string) => {
-    const updated = favorites.includes(recipeId)
-      ? favorites.filter((id) => id !== recipeId)
-      : [...favorites, recipeId];
-    setFavorites(updated);
-    localStorage.setItem('nepisirsem_favs', JSON.stringify(updated));
-  };
+  const toggleFavorite = useCallback((recipeId: string) => {
+    setFavorites((prev) => {
+      const updated = prev.includes(recipeId)
+        ? prev.filter((id) => id !== recipeId)
+        : [...prev, recipeId];
+      localStorage.setItem('nepisirsem_favs', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
-  const addMissingToShoppingList = (
-    items: { name: string; measure: string; recipeTitle: string }[]
-  ) => {
-    const newEntries: ShoppingItem[] = items.map((item) => ({
-      id: `${Date.now()}-${Math.random()}`,
-      name: item.name,
-      measure: item.measure,
-      recipeTitle: item.recipeTitle,
-      checked: false,
-    }));
-    const updated = [...shoppingList, ...newEntries];
-    setShoppingList(updated);
-    localStorage.setItem('nepisirsem_shopping', JSON.stringify(updated));
-  };
+  const handleSelectRecipe = useCallback((matched: MatchedRecipe) => {
+    setSelectedMatchedRecipe(matched);
+  }, []);
+
+  const addMissingToShoppingList = useCallback(
+    (items: { name: string; measure: string; recipeTitle: string }[]) => {
+      const newEntries: ShoppingItem[] = items.map((item) => ({
+        id: `${Date.now()}-${Math.random()}`,
+        name: item.name,
+        measure: item.measure,
+        recipeTitle: item.recipeTitle,
+        checked: false,
+      }));
+      setShoppingList((prev) => {
+        const updated = [...prev, ...newEntries];
+        localStorage.setItem('nepisirsem_shopping', JSON.stringify(updated));
+        return updated;
+      });
+    },
+    []
+  );
 
   const addCustomShoppingItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +512,6 @@ export function App() {
         const inTitle = m.recipe.title.toLowerCase().includes(q);
         const inCountry = (m.recipe.countryLabel || '').toLowerCase().includes(q);
 
-        // Eğer kullanıcı bir şehir adı yazdıysa (örn: "antep"), başka illerin "antep fıstığı" içeren tatlılarını getirme!
         const isCityQuery = CITY_KEYWORDS.some((ck) => q === ck || q.includes(ck));
         if (isCityQuery) {
           return inTitle || inCountry;
@@ -391,29 +551,10 @@ export function App() {
     ].filter((entry) => entry.item !== null);
   }, [matchedRecipes, menuSeed]);
 
-  const filteredIngredients = useMemo(() => {
-    return INGREDIENTS_DATA.filter((item) => {
-      if (selectedIngredientCat !== 'tumu') {
-        if (selectedIngredientCat === 'temel') {
-          if (item.category !== 'temel' && !item.isStaple) return false;
-        } else if (item.category !== selectedIngredientCat) {
-          return false;
-        }
-      }
-      if (ingredientSearch.trim()) {
-        const q = ingredientSearch.toLowerCase();
-        const inMain = item.name.toLowerCase().includes(q);
-        const inAlias = item.aliases?.some((a) => a.toLowerCase().includes(q));
-        return inMain || inAlias;
-      }
-      return true;
-    });
-  }, [selectedIngredientCat, ingredientSearch]);
-
-  const switchTab = (tab: ActiveTab) => {
+  const switchTab = useCallback((tab: ActiveTab) => {
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-  };
+  }, []);
 
   const pickRandomRecipe = () => {
     const pool = matchedRecipes.filter((m) => m.missingIngredients.length <= 2);
@@ -428,57 +569,87 @@ export function App() {
     setSelectedMatchedRecipe(randomPick);
   };
 
-  const displayedRecipes =
-    activeTab === 'favoriler'
-      ? filteredRecipes.filter((m) => favorites.includes(m.recipe.id))
-      : filteredRecipes.slice(0, visibleCount);
+  const displayedRecipes = useMemo(
+    () =>
+      activeTab === 'favoriler'
+        ? filteredRecipes.filter((m) => favoritesSet.has(m.recipe.id))
+        : filteredRecipes.slice(0, visibleCount),
+    [activeTab, filteredRecipes, favoritesSet, visibleCount]
+  );
 
   const uncheckedShoppingCount = shoppingList.filter((i) => !i.checked).length;
 
+  const handleShareShoppingList = () => {
+    const text = `🛒 Mutfak Alışveriş Listem\n\n${shoppingList
+      .map((i) => `${i.checked ? '✅' : '⬜'} ${i.measure} ${i.name} (${i.recipeTitle})`)
+      .join('\n')}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Mutfak Alışveriş Listem', text }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(text);
+      setShoppingCopiedToast(true);
+      setTimeout(() => setShoppingCopiedToast(false), 3000);
+    }
+  };
+
   return (
     <div className="app-shell">
-      {/* SADE, TEMİZ, KULLANICI DOSTU ÜST BAR */}
+      {/* FERAH, GÜVENLİ BOŞLUKLU (SAFE-AREA) MODERN ÜST BAR */}
       <header className="main-header">
         <div className="header-top-row">
           <div className="brand-block" onClick={() => switchTab('tarifler')}>
             <div className="brand-logo">
-              <ChefHat size={22} />
+              <ChefHat size={23} />
             </div>
             <div className="brand-text">
               <div className="brand-title-line">
                 <h1>Ne Pişirsem?</h1>
               </div>
+              <p className="brand-tagline">Evdeki malzemelerle tam ölçülü tarifler</p>
             </div>
           </div>
 
           <div className="header-actions-row">
             {/* KİŞİ SAYISI KONTROLÜ */}
             <div className="global-servings-pill">
-              <Users size={15} className="text-rose shrink-0" />
+              <Users size={16} className="text-rose shrink-0" />
               <button
+                type="button"
                 className="mini-step-btn"
                 onClick={() => setGlobalServings((s) => Math.max(1, s - 1))}
                 aria-label="Kişi azalt"
               >
-                <Minus size={13} />
+                <Minus size={14} />
               </button>
               <strong className="servings-pill-val">{globalServings} Kişilik</strong>
               <button
+                type="button"
                 className="mini-step-btn"
                 onClick={() => setGlobalServings((s) => Math.min(20, s + 1))}
                 aria-label="Kişi artır"
               >
-                <Plus size={13} />
+                <Plus size={14} />
               </button>
             </div>
 
             <button
+              type="button"
               className="surprise-me-btn"
               onClick={pickRandomRecipe}
               title="Rastgele Yemek Öner"
             >
-              <Dices size={16} />
+              <Dices size={17} />
               <span className="surprise-btn-label">Bana Öner</span>
+            </button>
+
+            <button
+              type="button"
+              className="info-guide-btn"
+              onClick={() => setIsGuideModalOpen(true)}
+              aria-label="Mutfak Rehberi ve Gizlilik"
+              title="Mutfak Rehberi & Gizlilik"
+            >
+              <Info size={18} />
             </button>
           </div>
         </div>
@@ -489,50 +660,58 @@ export function App() {
         {/* SOL PANEL: KİLERİM */}
         <section
           className={`workspace-panel pantry-panel ${
-            activeTab === 'kiler' ? 'tab-active' : 'tab-inactive'
+            activeTab === 'kiler' ? 'tab-active' : 'tab-inactive-mobile'
           }`}
         >
-          <div className="panel-card">
+          <div className="panel-card pantry-card">
             <div className="panel-card-header pantry-header-row">
               <div className="header-title-wrap">
                 <h2>🧺 Kilerim ({pantry.length})</h2>
+                <p>Evdeki malzemelerinizi seçin, uygun yemekler anında listelensin</p>
               </div>
               <div className="header-btn-group">
-                <button className="share-list-btn" onClick={selectAllVisibleIngredients}>
-                  <Check size={13} /> Tümünü Seç
+                <button
+                  type="button"
+                  className="share-list-btn"
+                  onClick={selectAllVisibleIngredients}
+                >
+                  <Check size={14} /> Tümünü Seç
                 </button>
-                <button className="clear-pantry-btn" onClick={clearPantry}>
-                  <Trash2 size={13} /> Sıfırla
+                <button type="button" className="clear-pantry-btn" onClick={clearPantry}>
+                  <Trash2 size={14} /> Sıfırla
                 </button>
               </div>
             </div>
 
             {/* HIZLI DOLAP PAKETLERİ */}
-            <div className="presets-grid mb-3">
+            <div className="presets-grid">
               {QUICK_PANTRY_PRESETS.map((preset) => {
                 const isAllIncluded = preset.items.every((it) =>
-                  pantry.includes(it.toLowerCase())
+                  pantrySet.has(it.toLowerCase())
                 );
                 return (
                   <button
+                    type="button"
                     key={preset.id}
                     className={`preset-chip ${isAllIncluded ? 'preset-active' : ''}`}
                     onClick={() => applyPreset(preset.items)}
                   >
                     <span>{preset.title}</span>
-                    {isAllIncluded ? (
-                      <Check size={13} className="shrink-0" />
-                    ) : (
-                      <Plus size={13} className="shrink-0" />
-                    )}
+                    <span className="preset-icon-badge">
+                      {isAllIncluded ? (
+                        <Check size={14} strokeWidth={2.5} className="shrink-0" />
+                      ) : (
+                        <Plus size={14} strokeWidth={2.5} className="shrink-0" />
+                      )}
+                    </span>
                   </button>
                 );
               })}
             </div>
 
             {/* MALZEME ARAMA */}
-            <div className="search-input-box">
-              <Search size={16} className="search-icon" />
+            <div className="search-input-box pantry-search-box">
+              <Search size={18} className="search-icon" />
               <input
                 type="text"
                 value={ingredientSearch}
@@ -540,16 +719,21 @@ export function App() {
                 placeholder="Malzeme ara (Örn: kıyma, mercimek, patlıcan...)"
               />
               {ingredientSearch && (
-                <button className="clear-search" onClick={() => setIngredientSearch('')}>
+                <button
+                  type="button"
+                  className="clear-search"
+                  onClick={() => setIngredientSearch('')}
+                >
                   ×
                 </button>
               )}
             </div>
 
             {/* MALZEME KATEGORİLERİ */}
-            <div className="category-pills-row">
+            <div className="category-pills-row pantry-cats-row">
               {INGREDIENT_CATEGORIES.map((cat) => (
                 <button
+                  type="button"
                   key={cat.id}
                   className={`cat-pill ${selectedIngredientCat === cat.id ? 'active' : ''}`}
                   onClick={() => setSelectedIngredientCat(cat.id)}
@@ -562,35 +746,25 @@ export function App() {
 
             {/* MALZEME SEÇİM IZGARASI */}
             <div className="ingredients-grid">
-              {filteredIngredients.map((item) => {
-                const isSelected = pantry.includes(item.name.toLowerCase());
-                return (
-                  <button
-                    key={item.id}
-                    className={`ingredient-chip-btn ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleIngredient(item.name)}
-                  >
-                    <span className="ing-emoji">{item.emoji}</span>
-                    <span className="ing-label">
-                      {item.name.charAt(0).toUpperCase() + item.name.slice(1)}
-                    </span>
-                    <span className="ing-check">
-                      {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                    </span>
-                  </button>
-                );
-              })}
+              {filteredIngredients.map((item) => (
+                <IngredientChip
+                  key={item.id}
+                  name={item.name}
+                  emoji={item.emoji}
+                  isSelected={pantrySet.has(item.name.toLowerCase())}
+                  onToggle={toggleIngredient}
+                />
+              ))}
             </div>
 
             <div className="mobile-cta-footer">
               <button
+                type="button"
                 className="primary-cta-btn"
                 onClick={() => switchTab('tarifler')}
               >
-                <Sparkles size={17} />
-                <span>
-                  Tarifleri Gör ({readyToCookCount} Hazır Yemek)
-                </span>
+                <Sparkles size={18} />
+                <span>Tarifleri Gör ({readyToCookCount} Hazır Yemek)</span>
               </button>
             </div>
           </div>
@@ -599,7 +773,7 @@ export function App() {
         {/* SAĞ PANEL: TARİFLER / GÜNÜN MENÜSÜ / FAVORİLER / ALIŞVERİŞ */}
         <section
           className={`workspace-panel results-panel ${
-            activeTab !== 'kiler' ? 'tab-active' : 'tab-inactive'
+            activeTab !== 'kiler' ? 'tab-active' : 'tab-inactive-mobile'
           }`}
         >
           {/* 1) GÜNÜN MENÜSÜ SEKMESİ */}
@@ -608,12 +782,14 @@ export function App() {
               <div className="panel-card-header">
                 <div className="header-title-wrap">
                   <h2>🍽️ Günün 4 Çeşit Menüsü ({globalServings} Kişilik)</h2>
+                  <p>Kilerinizdeki malzemelere göre uyumlu çorba, ana yemek, yardımcı ve tatlı</p>
                 </div>
                 <button
+                  type="button"
                   className="surprise-me-btn"
                   onClick={() => setMenuSeed((s) => s + 1)}
                 >
-                  <Dices size={15} /> Menüyü Değiştir
+                  <Dices size={16} /> Menüyü Değiştir
                 </button>
               </div>
 
@@ -635,7 +811,7 @@ export function App() {
                             title={recipe.title}
                             category={recipe.category}
                             emoji={recipe.emoji}
-                            height={84}
+                            height={88}
                           />
                         </div>
                         <div className="menu-slot-info">
@@ -653,7 +829,7 @@ export function App() {
                             </span>
                           </div>
                         </div>
-                        <ChevronRight size={18} className="text-muted shrink-0" />
+                        <ChevronRight size={19} className="text-muted shrink-0" />
                       </div>
                     </div>
                   );
@@ -666,30 +842,34 @@ export function App() {
               <div className="panel-card-header">
                 <div className="header-title-wrap">
                   <h2>🛒 Alışveriş Listem</h2>
+                  <p>Tariflerdeki eksik malzemeleri veya kendi ihtiyaçlarınızı takip edin</p>
                 </div>
                 {shoppingList.length > 0 && (
                   <div className="header-btn-group">
                     <button
+                      type="button"
                       className="share-list-btn"
-                      onClick={() => {
-                        const text = `🛒 *Mutfak Alışveriş Listem*\n\n${shoppingList
-                          .map(
-                            (i) =>
-                              `${i.checked ? '✅' : '⬜'} ${i.measure} ${i.name} (${i.recipeTitle})`
-                          )
-                          .join('\n')}`;
-                        navigator.clipboard?.writeText(text);
-                        alert('Alışveriş listeniz kopyalandı!');
-                      }}
+                      onClick={handleShareShoppingList}
                     >
-                      <Share2 size={13} /> Paylaş
+                      <Share2 size={14} /> Paylaş
                     </button>
-                    <button className="clear-pantry-btn" onClick={clearShoppingList}>
-                      <Trash2 size={13} /> Temizle
+                    <button
+                      type="button"
+                      className="clear-pantry-btn"
+                      onClick={clearShoppingList}
+                    >
+                      <Trash2 size={14} /> Temizle
                     </button>
                   </div>
                 )}
               </div>
+
+              {shoppingCopiedToast && (
+                <div className="cart-success-toast">
+                  <CheckCircle2 size={16} />
+                  <span>Alışveriş listeniz panoya kopyalandı!</span>
+                </div>
+              )}
 
               <form onSubmit={addCustomShoppingItem} className="shopping-add-form">
                 <input
@@ -699,13 +879,13 @@ export function App() {
                   placeholder="Malzeme ekle (Örn: 1 kg yoğurt...)"
                 />
                 <button type="submit">
-                  <Plus size={15} /> Ekle
+                  <Plus size={16} /> Ekle
                 </button>
               </form>
 
               {shoppingList.length === 0 ? (
                 <div className="empty-state-box">
-                  <ShoppingBasket size={40} className="text-rose" />
+                  <ShoppingBasket size={42} className="text-rose" />
                   <h3>Listeniz Boş</h3>
                   <p>Tarif içinden eksik malzemeleri tek tıkla buraya ekleyebilirsiniz.</p>
                 </div>
@@ -738,6 +918,7 @@ export function App() {
               {/* MUTFAK SEÇİMİ: TÜMÜ | TÜRKİYE | DÜNYA */}
               <div className="cuisine-origin-tabs">
                 <button
+                  type="button"
                   className={`origin-tab-btn ${cuisineFilter === 'all' ? 'active' : ''}`}
                   onClick={() => {
                     setCuisineFilter('all');
@@ -748,6 +929,7 @@ export function App() {
                   <span className="origin-count">{matchedRecipes.length}</span>
                 </button>
                 <button
+                  type="button"
                   className={`origin-tab-btn ${cuisineFilter === 'turkish' ? 'active' : ''}`}
                   onClick={() => setCuisineFilter('turkish')}
                 >
@@ -755,6 +937,7 @@ export function App() {
                   <span className="origin-count">{turkishCount}</span>
                 </button>
                 <button
+                  type="button"
                   className={`origin-tab-btn ${cuisineFilter === 'world' ? 'active' : ''}`}
                   onClick={() => {
                     setCuisineFilter('world');
@@ -769,7 +952,7 @@ export function App() {
               {/* ARAMA & SADECE EKSİKSİZLER FİLTRESİ */}
               <div className="recipes-filter-toolbar">
                 <div className="search-input-box flex-1">
-                  <Search size={16} className="search-icon" />
+                  <Search size={18} className="search-icon" />
                   <input
                     type="text"
                     value={recipeSearch}
@@ -777,17 +960,22 @@ export function App() {
                     placeholder="Yemek, şehir veya malzeme ara (Örn: Gaziantep, mantı, kebap...)"
                   />
                   {recipeSearch && (
-                    <button className="clear-search" onClick={() => setRecipeSearch('')}>
+                    <button
+                      type="button"
+                      className="clear-search"
+                      onClick={() => setRecipeSearch('')}
+                    >
                       ×
                     </button>
                   )}
                 </div>
 
                 <button
+                  type="button"
                   className={`ready-filter-toggle ${onlyReadyToCook ? 'active' : ''}`}
                   onClick={() => setOnlyReadyToCook(!onlyReadyToCook)}
                 >
-                  <CheckCircle2 size={15} />
+                  <CheckCircle2 size={16} />
                   <span>Hazır ({readyToCookCount})</span>
                 </button>
               </div>
@@ -796,6 +984,7 @@ export function App() {
               <div className="category-pills-row">
                 {RECIPE_CATEGORIES.map((cat) => (
                   <button
+                    type="button"
                     key={cat.id}
                     className={`cat-pill ${selectedRecipeCat === cat.id ? 'active' : ''}`}
                     onClick={() => setSelectedRecipeCat(cat.id)}
@@ -811,6 +1000,7 @@ export function App() {
                 <div className="category-pills-row city-pills-row">
                   {CITY_FILTERS.map((city) => (
                     <button
+                      type="button"
                       key={city.id}
                       className={`cat-pill region-pill ${
                         selectedCity === city.id ? 'active' : ''
@@ -823,13 +1013,14 @@ export function App() {
                 </div>
               )}
 
-              {/* TARİF KARTLARI IZGARASI (SADE, NET, ORİJİNAL FOTOĞRAFLI) */}
+              {/* TARİF KARTLARI IZGARASI */}
               {displayedRecipes.length === 0 ? (
                 <div className="empty-state-box">
-                  <ChefHat size={40} className="text-rose" />
+                  <ChefHat size={42} className="text-rose" />
                   <h3>Tarif Bulunamadı</h3>
                   <p>Arama kriterini veya filtreyi değiştirebilirsiniz.</p>
                   <button
+                    type="button"
                     className="surprise-me-btn mt-3 mx-auto"
                     onClick={() => {
                       setOnlyReadyToCook(false);
@@ -844,90 +1035,22 @@ export function App() {
               ) : (
                 <>
                   <div className="recipe-cards-grid">
-                    {displayedRecipes.map((matched) => {
-                      const { recipe, missingIngredients, canCookImmediately } = matched;
-                      const isFav = favorites.includes(recipe.id);
-
-                      return (
-                        <article
-                          key={recipe.id}
-                          className={`recipe-card ${canCookImmediately ? 'ready-card' : ''}`}
-                          onClick={() => setSelectedMatchedRecipe(matched)}
-                        >
-                          <DishVisualHeader
-                            title={recipe.title}
-                            category={recipe.category}
-                            emoji={recipe.emoji}
-                            height={172}
-                            className="recipe-card-media"
-                          >
-                            <div className="recipe-card-badges">
-                              {canCookImmediately ? (
-                                <span className="status-pill ready">
-                                  <CheckCircle2 size={12} /> Hemen Pişir
-                                </span>
-                              ) : (
-                                <span className="status-pill missing">
-                                  <AlertCircle size={12} /> {missingIngredients.length} Eksik
-                                </span>
-                              )}
-                            </div>
-
-                            {recipe.countryLabel && (
-                              <span className="country-origin-badge">{recipe.countryLabel}</span>
-                            )}
-
-                            <button
-                              className={`card-fav-btn ${isFav ? 'active' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(recipe.id);
-                              }}
-                              aria-label="Favorilere ekle"
-                            >
-                              <Heart size={16} fill={isFav ? '#E11D48' : 'none'} />
-                            </button>
-                          </DishVisualHeader>
-
-                          <div className="recipe-card-content">
-                            <h3 className="recipe-card-title">{recipe.title}</h3>
-
-                            <div className="recipe-meta-row">
-                              <span>
-                                <Clock size={13} /> {recipe.prepTime + recipe.cookTime} dk
-                              </span>
-                              <span>
-                                <Flame size={13} /> {recipe.caloriesPerServing} kcal
-                              </span>
-                              <span className="portion-tag">{globalServings} Kişilik</span>
-                            </div>
-
-                            {canCookImmediately ? (
-                              <div className="ready-status-line">
-                                <Check size={13} /> Tüm malzemeler evinizde hazır
-                              </div>
-                            ) : (
-                              <div className="missing-preview-line">
-                                <span>Eksik: </span>
-                                <strong>
-                                  {missingIngredients
-                                    .slice(0, 3)
-                                    .map((m) => m.name)
-                                    .join(', ')}
-                                  {missingIngredients.length > 3 &&
-                                    ` +${missingIngredients.length - 3}`}
-                                </strong>
-                              </div>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
+                    {displayedRecipes.map((matched) => (
+                      <RecipeCardItem
+                        key={matched.recipe.id}
+                        matched={matched}
+                        isFav={favoritesSet.has(matched.recipe.id)}
+                        globalServings={globalServings}
+                        onSelect={handleSelectRecipe}
+                        onToggleFav={toggleFavorite}
+                      />
+                    ))}
                   </div>
 
-                  {activeTab === 'tarifler' && visibleCount < filteredRecipes.length && (
+                  {activeTab !== 'favoriler' && visibleCount < filteredRecipes.length && (
                     <div className="load-more-wrap">
                       <button
+                        type="button"
                         className="load-more-btn"
                         onClick={() => setVisibleCount((prev) => prev + 24)}
                       >
@@ -942,44 +1065,54 @@ export function App() {
         </section>
       </main>
 
-      {/* MOBİL ALT NAVİGASYON BAR */}
-      <nav className="mobile-bottom-nav">
+      {/* TÜM CİHAZLARDA (iPhone, iPad, Tablet) HER ZAMAN ERİŞİLEBİLİR MODERN ALT NAVİGASYON BAR */}
+      <nav className="mobile-bottom-nav" aria-label="Ana Navigasyon">
         <button
+          type="button"
           className={`nav-tab-item ${activeTab === 'kiler' ? 'active' : ''}`}
           onClick={() => switchTab('kiler')}
         >
-          <div className="badge-wrap">
-            <ShoppingBasket size={20} />
+          <div className="nav-icon-pill">
+            <ShoppingBasket size={21} strokeWidth={activeTab === 'kiler' ? 2.4 : 2} />
             <span className="nav-count-pill">{pantry.length}</span>
           </div>
           <span className="nav-label">Kilerim</span>
         </button>
 
         <button
+          type="button"
           className={`nav-tab-item ${activeTab === 'tarifler' ? 'active' : ''}`}
           onClick={() => switchTab('tarifler')}
         >
-          <div className="badge-wrap">
-            <ChefHat size={20} />
+          <div className="nav-icon-pill">
+            <ChefHat size={21} strokeWidth={activeTab === 'tarifler' ? 2.4 : 2} />
             <span className="nav-count-pill">{readyToCookCount}</span>
           </div>
           <span className="nav-label">Tarifler</span>
         </button>
 
         <button
+          type="button"
           className={`nav-tab-item ${activeTab === 'menu' ? 'active' : ''}`}
           onClick={() => switchTab('menu')}
         >
-          <UtensilsCrossed size={20} />
+          <div className="nav-icon-pill">
+            <UtensilsCrossed size={21} strokeWidth={activeTab === 'menu' ? 2.4 : 2} />
+          </div>
           <span className="nav-label">Menü</span>
         </button>
 
         <button
+          type="button"
           className={`nav-tab-item ${activeTab === 'favoriler' ? 'active' : ''}`}
           onClick={() => switchTab('favoriler')}
         >
-          <div className="badge-wrap">
-            <Heart size={20} />
+          <div className="nav-icon-pill">
+            <Heart
+              size={21}
+              strokeWidth={activeTab === 'favoriler' ? 2.4 : 2}
+              fill={activeTab === 'favoriler' ? 'currentColor' : 'none'}
+            />
             {favorites.length > 0 && (
               <span className="nav-count-pill">{favorites.length}</span>
             )}
@@ -988,11 +1121,12 @@ export function App() {
         </button>
 
         <button
+          type="button"
           className={`nav-tab-item ${activeTab === 'alisveris' ? 'active' : ''}`}
           onClick={() => switchTab('alisveris')}
         >
-          <div className="badge-wrap">
-            <Sparkles size={20} />
+          <div className="nav-icon-pill">
+            <Sparkles size={21} strokeWidth={activeTab === 'alisveris' ? 2.4 : 2} />
             {uncheckedShoppingCount > 0 && (
               <span className="nav-badge">{uncheckedShoppingCount}</span>
             )}
@@ -1001,6 +1135,92 @@ export function App() {
         </button>
       </nav>
 
+      {/* MUTFAK ÖLÇÜ REHBERİ & GİZLİLİK MODALI */}
+      {isGuideModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsGuideModalOpen(false)}>
+          <div className="modal-sheet guide-modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="guide-modal-header">
+              <div className="guide-modal-title-wrap">
+                <BookOpen size={22} className="text-rose shrink-0" />
+                <div>
+                  <h2>Mutfak Rehberi & Uygulama Bilgisi</h2>
+                  <p>Standart bardak/kaşık ölçüleri ve veri güvenliği</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="circle-action-btn"
+                onClick={() => setIsGuideModalOpen(false)}
+                aria-label="Kapat"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-scroll-body">
+              <div className="modal-section">
+                <h3 className="section-heading mb-3">
+                  <span>🥛 Standart Türk Mutfağı Ölçü Rehberi</span>
+                </h3>
+                <div className="scaled-ingredients-grid">
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Su Bardağı (Sıvı / Su / Süt)</span>
+                    </div>
+                    <strong className="measure-primary">200 ml</strong>
+                  </div>
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Su Bardağı Un</span>
+                    </div>
+                    <strong className="measure-primary">~120 gr</strong>
+                  </div>
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Su Bardağı Pirinç / Bakliyat</span>
+                    </div>
+                    <strong className="measure-primary">~180 gr</strong>
+                  </div>
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Çay Bardağı</span>
+                    </div>
+                    <strong className="measure-primary">100 ml</strong>
+                  </div>
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Yemek Kaşığı</span>
+                    </div>
+                    <strong className="measure-primary">15 ml (~12 gr)</strong>
+                  </div>
+                  <div className="scaled-ingredient-row in-pantry">
+                    <div className="ing-info">
+                      <span className="ing-name">1 Tatlı Kaşığı / 1 Çay Kaşığı</span>
+                    </div>
+                    <strong className="measure-primary">5 ml / 2.5 ml</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-section">
+                <h3 className="section-heading mb-3">
+                  <ShieldCheck size={19} className="text-rose" />
+                  <span>Gizlilik ve Çevrimdışı Kullanım Güvencesi</span>
+                </h3>
+                <p className="step-instruction">
+                  <strong>Ne Pişirsem?</strong> uygulaması tüm tarif arşivini, akıllı kiler
+                  eşleştiricisini ve porsiyon hesaplayıcısını doğrudan cihazınızda (%100
+                  çevrimdışı / offline) çalıştırır. Seçtiğiniz kiler malzemeleri, favori
+                  tarifleriniz ve alışveriş listeniz yalnızca cihazınızın yerel hafızasında
+                  saklanır; hiçbir kişisel veriniz toplanmaz, takip edilmez ve dış sunuculara
+                  aktarılmaz.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TARİF DETAY & PORSİYON HESAPLAMA MODALI */}
       <RecipeDetailModal
         matchedRecipe={selectedMatchedRecipe}
@@ -1008,7 +1228,7 @@ export function App() {
         defaultServings={globalServings}
         isFavorite={
           selectedMatchedRecipe
-            ? favorites.includes(selectedMatchedRecipe.recipe.id)
+            ? favoritesSet.has(selectedMatchedRecipe.recipe.id)
             : false
         }
         onToggleFavorite={toggleFavorite}

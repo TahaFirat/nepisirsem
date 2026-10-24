@@ -34,7 +34,13 @@ jobs:
         run: npm run build
 
       - name: 5. Sync Capacitor iOS Project
-        run: npx cap sync ios
+        run: |
+          npx cap sync ios
+          cat > ios/App/App/config.xml << 'EOF'
+          <?xml version='1.0' encoding='utf-8'?>
+          <widget version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+          </widget>
+          EOF
 
       - name: 6. Install Apple Distribution Certificate & Auto-Provision Profile
         run: |

@@ -16,19 +16,18 @@ import {
   CheckCircle2,
   Minus,
   Plus,
-  PlayCircle,
-  ExternalLink,
   Volume2,
   VolumeX,
+  Flame,
+  Sparkles,
 } from 'lucide-react';
 import type { MatchedRecipe } from '../types/recipe';
-import { scaleRecipeIngredients } from '../utils/portionScaler';
-import type { ScaledIngredientResult } from '../utils/portionScaler';
 import {
-  DishVisualHeader,
-  getYoutubeRecipeSearchUrl,
-  getNefisYemekSearchUrl,
-} from './DishVisualHeader';
+  scaleRecipeIngredients,
+  getPortionCookingAdvice,
+} from '../utils/portionScaler';
+import type { ScaledIngredientResult } from '../utils/portionScaler';
+import { DishVisualHeader, resolveDishVisualTheme } from './DishVisualHeader';
 
 interface RecipeDetailModalProps {
   matchedRecipe: MatchedRecipe | null;
@@ -59,6 +58,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [addedToCartBanner, setAddedToCartBanner] = useState<boolean>(false);
+  const [copiedBanner, setCopiedBanner] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   useEffect(() => {
@@ -68,6 +68,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       setActiveTimerStep(null);
       setIsTimerRunning(false);
       setAddedToCartBanner(false);
+      setCopiedBanner(false);
     }
     return () => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -100,8 +101,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     servings
   );
 
-  const youtubeUrl = getYoutubeRecipeSearchUrl(recipe.title);
-  const nefisYemekUrl = getNefisYemekSearchUrl(recipe.title);
+  const visualTheme = resolveDishVisualTheme(recipe.title, recipe.category);
+  const portionAdvice = getPortionCookingAdvice(
+    recipe.baseServings,
+    servings,
+    recipe.category
+  );
 
   const normalizedPantry = new Set(pantryItems.map((p) => p.toLowerCase().trim()));
 
@@ -154,9 +159,9 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   };
 
   const handleShare = () => {
-    const text = `🍲 *${recipe.title}* (${servings} Kişilik)\n\n📝 *Malzemeler:*\n${scaledIngredients
+    const text = `🍲 ${recipe.title} (${servings} Kişilik)\n\n📝 Malzemeler:\n${scaledIngredients
       .map((i) => `• ${i.formattedMeasure} ${i.name}`)
-      .join('\n')}\n\n👩‍🍳 *Yapılışı:*\n${recipe.steps
+      .join('\n')}\n\n👩‍🍳 Yapılışı:\n${recipe.steps
       .map((s, idx) => `${idx + 1}) ${s.instruction}`)
       .join('\n')}`;
 
@@ -164,7 +169,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       navigator.share({ title: recipe.title, text }).catch(() => {});
     } else {
       navigator.clipboard?.writeText(text);
-      alert('Tarif panoya kopyalandı!');
+      setCopiedBanner(true);
+      setTimeout(() => setCopiedBanner(false), 3000);
     }
   };
 
@@ -194,29 +200,45 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
+  const stepProgressPercent =
+    recipe.steps.length > 0
+      ? Math.round((completedSteps.length / recipe.steps.length) * 100)
+      : 0;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-        {/* Üst Orijinal Yemek Fotoğrafı ve Başlık */}
+        {/* Üst Yemek Görsel Alanı ve Başlık */}
         <DishVisualHeader
           title={recipe.title}
           category={recipe.category}
           emoji={recipe.emoji}
-          height={230}
+          height={220}
           className="modal-hero"
         >
           <div className="modal-top-actions">
             <button
+              type="button"
               className={`circle-action-btn ${isFavorite ? 'fav-active' : ''}`}
               onClick={() => onToggleFavorite(recipe.id)}
               title="Favorilere Ekle"
             >
               <Heart size={19} fill={isFavorite ? '#E11D48' : 'none'} />
             </button>
-            <button className="circle-action-btn" onClick={handleShare} title="Paylaş">
+            <button
+              type="button"
+              className="circle-action-btn"
+              onClick={handleShare}
+              title="Paylaş"
+            >
               <Share2 size={19} />
             </button>
-            <button className="circle-action-btn close-btn" onClick={onClose} title="Kapat">
+            <button
+              type="button"
+              className="circle-action-btn close-btn"
+              onClick={onClose}
+              title="Kapat"
+            >
               <X size={21} />
             </button>
           </div>
@@ -227,10 +249,18 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               {recipe.prepTime + recipe.cookTime} dk • {recipe.caloriesPerServing} kcal
             </span>
             <h2 className="modal-title">{recipe.title}</h2>
+            {recipe.subtitle && <p className="modal-subtitle">{recipe.subtitle}</p>}
           </div>
         </DishVisualHeader>
 
         <div className="modal-scroll-body">
+          {copiedBanner && (
+            <div className="cart-success-toast">
+              <CheckCircle2 size={16} />
+              <span>Tarif metni panoya kopyalandı!</span>
+            </div>
+          )}
+
           {/* 1) KİŞİ SAYISI AYARI (SADE & HIZLI) */}
           <div className="portion-calculator-card">
             <div className="portion-header">
@@ -246,6 +276,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
               <div className="portion-stepper">
                 <button
+                  type="button"
                   className="stepper-btn"
                   onClick={() => setServings((s) => Math.max(1, s - 1))}
                   disabled={servings <= 1}
@@ -257,6 +288,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   <span className="stepper-label">Kişilik</span>
                 </div>
                 <button
+                  type="button"
                   className="stepper-btn"
                   onClick={() => setServings((s) => Math.min(20, s + 1))}
                 >
@@ -268,6 +300,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             <div className="portion-presets-row">
               {PORTION_NUMBERS.map((num) => (
                 <button
+                  type="button"
                   key={num}
                   className={`portion-preset-chip ${servings === num ? 'active' : ''}`}
                   onClick={() => setServings(num)}
@@ -275,6 +308,31 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   <span className="preset-count">{num} Kişi</span>
                 </button>
               ))}
+            </div>
+
+            <div className="portion-advice-banner">
+              <Sparkles size={15} className="shrink-0" />
+              <span>{portionAdvice}</span>
+            </div>
+          </div>
+
+          {/* TENCERE & PİŞİRME ÖZETİ ŞERİDİ */}
+          <div className="cookware-summary-strip">
+            <div className="cookware-item">
+              <Utensils size={18} className="text-rose shrink-0" />
+              <div>
+                <span className="cookware-label">Önerilen Ekipman</span>
+                <strong>{visualTheme.cookwareHint}</strong>
+              </div>
+            </div>
+            <div className="cookware-item">
+              <Flame size={18} className="text-rose shrink-0" />
+              <div>
+                <span className="cookware-label">Pişirme Isısı & Süre</span>
+                <strong>
+                  {visualTheme.heatHint} ({recipe.prepTime} dk haz. + {recipe.cookTime} dk pişirme)
+                </strong>
+              </div>
             </div>
           </div>
 
@@ -286,7 +344,11 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                 <span>Malzemeler ({servings} Kişilik)</span>
               </h3>
               {missingIngredients.length > 0 && (
-                <button className="add-missing-btn" onClick={handleAddMissing}>
+                <button
+                  type="button"
+                  className="add-missing-btn"
+                  onClick={handleAddMissing}
+                >
                   <ShoppingBag size={14} />
                   <span>Eksikleri Listeye Ekle ({missingIngredients.length})</span>
                 </button>
@@ -317,9 +379,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                       <span className="ing-name">
                         {ing.name.charAt(0).toUpperCase() + ing.name.slice(1)}
                       </span>
+                      {ing.note && <span className="ing-note">{ing.note}</span>}
                     </div>
                     <div className="ing-measure-badge">
                       <strong className="measure-primary">{ing.formattedMeasure}</strong>
+                      {ing.metricEquivalent && (
+                        <span className="measure-metric">{ing.metricEquivalent}</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -332,16 +398,26 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             <div className="section-header-row">
               <h3 className="section-heading">
                 <Clock size={18} className="text-rose" />
-                <span>Hazırlanışı</span>
+                <span>
+                  Hazırlanışı ({completedSteps.length}/{recipe.steps.length})
+                </span>
               </h3>
 
               <button
+                type="button"
                 className={`voice-read-btn ${isSpeaking ? 'speaking' : ''}`}
                 onClick={toggleVoiceRead}
               >
                 {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 <span>{isSpeaking ? 'Durdur' : 'Sesli Oku'}</span>
               </button>
+            </div>
+
+            <div className="step-progress-bar">
+              <div
+                className="step-progress-fill"
+                style={{ width: `${stepProgressPercent}%` }}
+              />
             </div>
 
             <div className="steps-list">
@@ -363,6 +439,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                         <h4>{step.title}</h4>
                         {step.timerMinutes && (
                           <button
+                            type="button"
                             className={`step-timer-btn ${
                               isTimerActive ? 'timer-running' : ''
                             }`}
@@ -402,12 +479,14 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                           </div>
                           <div className="timer-controls">
                             <button
+                              type="button"
                               className="timer-mini-btn"
                               onClick={() => setIsTimerRunning(!isTimerRunning)}
                             >
                               {isTimerRunning ? 'Duraklat' : 'Devam'}
                             </button>
                             <button
+                              type="button"
                               className="timer-mini-btn"
                               onClick={() => {
                                 setTimerSecondsLeft(step.timerMinutes! * 60);
@@ -426,45 +505,23 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 4) PÜF NOKTASI & VİDEO / KAYNAK BAĞLANTILARI */}
-          <div className="chef-tip-box">
-            <div className="tip-header">
-              <ChefHat size={17} />
-              <h4>Püf Noktası & Servis Önerisi</h4>
+          {/* 4) ŞEFİN PÜF NOKTASI & SERVİS ÖNERİSİ */}
+          <div className="tips-grid">
+            <div className="chef-tip-box">
+              <div className="tip-header">
+                <ChefHat size={17} />
+                <h4>Şefin Püf Noktası</h4>
+              </div>
+              <p>{recipe.chefTip}</p>
             </div>
-            <p>
-              {recipe.chefTip} {recipe.servingSuggestion}
-            </p>
-          </div>
 
-          <div className="guides-btn-grid">
-            <a
-              href={youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="guide-link-btn youtube-btn"
-            >
-              <PlayCircle size={17} className="shrink-0" />
-              <div>
-                <strong>YouTube Video Tarifi</strong>
-                <span>Yapılış videosunu izle</span>
+            <div className="serving-tip-box">
+              <div className="tip-header">
+                <Utensils size={17} />
+                <h4>Servis & Yanına Ne Yakışır?</h4>
               </div>
-              <ExternalLink size={13} className="ml-auto shrink-0" />
-            </a>
-
-            <a
-              href={nefisYemekUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="guide-link-btn nefisyemek-btn"
-            >
-              <Utensils size={16} className="shrink-0" />
-              <div>
-                <strong>Nefis Yemek Tarifleri</strong>
-                <span>Alternatif tarif & yorumlar</span>
-              </div>
-              <ExternalLink size={13} className="ml-auto shrink-0" />
-            </a>
+              <p>{recipe.servingSuggestion}</p>
+            </div>
           </div>
         </div>
       </div>
