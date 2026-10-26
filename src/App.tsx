@@ -35,11 +35,13 @@ import type {
   CuisineOrigin,
   IngredientCategoryId,
   MatchedRecipe,
+  Recipe,
   RecipeCategory,
 } from './types/recipe';
 import { matchRecipesWithPantry } from './utils/recipeMatcher';
 import { RecipeDetailModal } from './components/RecipeDetailModal';
 import { DishVisualHeader } from './components/DishVisualHeader';
+import { triggerNativeHaptic } from './utils/nativeBridge';
 import './App.css';
 
 interface ShoppingItem {
@@ -315,6 +317,25 @@ export function App() {
   const [menuSeed, setMenuSeed] = useState<number>(0);
   const [shoppingCopiedToast, setShoppingCopiedToast] = useState<boolean>(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
+  const [isAddRecipeModalOpen, setIsAddRecipeModalOpen] = useState<boolean>(false);
+  const [customRecipes, setCustomRecipes] = useState<Recipe[]>(() => {
+    const saved = localStorage.getItem('nepisirsem_custom_recipes');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [newRecipeTitle, setNewRecipeTitle] = useState<string>('');
+  const [newRecipeCategory, setNewRecipeCategory] =
+    useState<Exclude<RecipeCategory, 'tumu'>>('et_tavuk');
+  const [newRecipePrep, setNewRecipePrep] = useState<string>('15');
+  const [newRecipeCook, setNewRecipeCook] = useState<string>('25');
+  const [newRecipeIngredientsText, setNewRecipeIngredientsText] = useState<string>('');
+  const [newRecipeStepsText, setNewRecipeStepsText] = useState<string>('');
 
   useEffect(() => {
     setVisibleCount(24);
@@ -329,6 +350,7 @@ export function App() {
   const favoritesSet = useMemo(() => new Set(favorites), [favorites]);
 
   const toggleIngredient = useCallback((name: string) => {
+    triggerNativeHaptic('light');
     const lower = name.toLowerCase();
     setPantry((prev) => {
       const next = prev.includes(lower)
@@ -340,6 +362,7 @@ export function App() {
   }, []);
 
   const applyPreset = useCallback((items: string[]) => {
+    triggerNativeHaptic('medium');
     setPantry((prev) => {
       const merged = Array.from(new Set([...prev, ...items.map((i) => i.toLowerCase())]));
       localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(merged));
@@ -442,7 +465,66 @@ export function App() {
     localStorage.setItem('nepisirsem_shopping', JSON.stringify([]));
   };
 
-  const allArchiveRecipes = useMemo(() => getFullRecipeArchive(), []);
+  const baseArchiveRecipes = useMemo(() => getFullRecipeArchive(), []);
+  const allArchiveRecipes = useMemo(
+    () => [...customRecipes, ...baseArchiveRecipes],
+    [customRecipes, baseArchiveRecipes]
+  );
+
+  const handleCreateCustomRecipe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRecipeTitle.trim() || !newRecipeIngredientsText.trim()) return;
+    triggerNativeHaptic('success');
+
+    const parsedIngredients = newRecipeIngredientsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      .map((name) => ({
+        name,
+        amount: 1,
+        unit: 'adet' as const,
+      }));
+
+    const parsedSteps = (newRecipeStepsText.trim() || 'Malzemeleri hazırlayıp pişirin.')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((instruction, i) => ({
+        title: `${i + 1}. Adım`,
+        instruction,
+        timerMinutes: i === 0 ? Math.max(5, Number(newRecipeCook) || 20) : undefined,
+      }));
+
+    const created: Recipe = {
+      id: `custom-${Date.now()}`,
+      title: newRecipeTitle.trim(),
+      subtitle: 'Kişisel Tarif Defterim (Özel Aile Tarifi)',
+      category: newRecipeCategory,
+      cuisineOrigin: 'turkish',
+      countryLabel: '👩‍🍳 Kendi Tarifim',
+      emoji: '🍲',
+      image: '',
+      prepTime: Math.max(5, Number(newRecipePrep) || 15),
+      cookTime: Math.max(5, Number(newRecipeCook) || 25),
+      difficulty: 'Kolay',
+      caloriesPerServing: 260,
+      baseServings: 4,
+      chefTip: 'Bu tarif kişisel tarif defterinize kaydedilmiştir ve porsiyon hesaplayıcı ile tam uyumludur.',
+      servingSuggestion: 'Sıcak olarak sevdiklerinizle servis edebilirsiniz.',
+      ingredients: parsedIngredients,
+      steps: parsedSteps,
+    };
+
+    const updated = [created, ...customRecipes];
+    setCustomRecipes(updated);
+    localStorage.setItem('nepisirsem_custom_recipes', JSON.stringify(updated));
+    setNewRecipeTitle('');
+    setNewRecipeIngredientsText('');
+    setNewRecipeStepsText('');
+    setIsAddRecipeModalOpen(false);
+    setActiveTab('tarifler');
+  };
 
   const matchedRecipes = useMemo(() => {
     return matchRecipesWithPantry(allArchiveRecipes, pantry, true);
@@ -645,7 +727,23 @@ export function App() {
             <button
               type="button"
               className="info-guide-btn"
-              onClick={() => setIsGuideModalOpen(true)}
+              onClick={() => {
+                triggerNativeHaptic('light');
+                setIsAddRecipeModalOpen(true);
+              }}
+              aria-label="Kendi Tarifini Ekle"
+              title="Kendi Tarifini Ekle"
+            >
+              <Plus size={18} />
+            </button>
+
+            <button
+              type="button"
+              className="info-guide-btn"
+              onClick={() => {
+                triggerNativeHaptic('light');
+                setIsGuideModalOpen(true);
+              }}
               aria-label="Mutfak Rehberi ve Gizlilik"
               title="Mutfak Rehberi & Gizlilik"
             >
@@ -1217,6 +1315,136 @@ export function App() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* KİŞİSEL TARİF DEFTERİM - KENDİ TARİFİNİ EKLE MODALI */}
+      {isAddRecipeModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsAddRecipeModalOpen(false)}>
+          <div className="modal-sheet guide-modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="guide-modal-header">
+              <div className="guide-modal-title-wrap">
+                <ChefHat size={22} className="text-rose shrink-0" />
+                <div>
+                  <h2>Kişisel Tarif Defterime Ekle</h2>
+                  <p>Kendi aile tarifinizi kaydedin, porsiyon ve kiler hesabına dahil edin</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="circle-action-btn"
+                onClick={() => setIsAddRecipeModalOpen(false)}
+                aria-label="Kapat"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="modal-scroll-body" onSubmit={handleCreateCustomRecipe}>
+              <div className="modal-section">
+                <label className="cookware-label">Yemek Adı</label>
+                <div className="search-input-box mt-2">
+                  <input
+                    type="text"
+                    required
+                    style={{ paddingLeft: '14px' }}
+                    value={newRecipeTitle}
+                    onChange={(e) => setNewRecipeTitle(e.target.value)}
+                    placeholder="Örn: Anne Usulü Sebzeli Güveç"
+                  />
+                </div>
+
+                <label className="cookware-label">Kategori & Pişirme Süresi (dk)</label>
+                <div className="recipes-filter-toolbar mt-2">
+                  <select
+                    value={newRecipeCategory}
+                    onChange={(e) =>
+                      setNewRecipeCategory(e.target.value as Exclude<RecipeCategory, 'tumu'>)
+                    }
+                    style={{
+                      flex: 1,
+                      padding: '11px 12px',
+                      borderRadius: '12px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.88rem',
+                      background: '#f8fafc',
+                    }}
+                  >
+                    <option value="corba">🥣 Çorba</option>
+                    <option value="et_tavuk">🍖 Et & Tavuk</option>
+                    <option value="sebze_zeytinyagli">🫒 Sebze & Zeytinyağlı</option>
+                    <option value="bakliyat_pilav">🍚 Pilav & Bakliyat</option>
+                    <option value="hamur_borek">🥐 Börek & Hamur İşi</option>
+                    <option value="kahvalti">🍳 Kahvaltılık</option>
+                    <option value="salata_meze">🥗 Salata & Meze</option>
+                    <option value="tatli">🍮 Tatlı</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="5"
+                    max="240"
+                    value={newRecipePrep}
+                    onChange={(e) => setNewRecipePrep(e.target.value)}
+                    placeholder="Hazırlık"
+                    style={{
+                      width: '80px',
+                      padding: '11px 10px',
+                      borderRadius: '12px',
+                      border: '1.5px solid #cbd5e1',
+                    }}
+                  />
+                  <input
+                    type="number"
+                    min="5"
+                    max="240"
+                    value={newRecipeCook}
+                    onChange={(e) => setNewRecipeCook(e.target.value)}
+                    placeholder="Pişirme"
+                    style={{
+                      width: '80px',
+                      padding: '11px 10px',
+                      borderRadius: '12px',
+                      border: '1.5px solid #cbd5e1',
+                    }}
+                  />
+                </div>
+
+                <label className="cookware-label">Malzemeler (Virgül ile ayırın)</label>
+                <div className="search-input-box mt-2">
+                  <input
+                    type="text"
+                    required
+                    style={{ paddingLeft: '14px' }}
+                    value={newRecipeIngredientsText}
+                    onChange={(e) => setNewRecipeIngredientsText(e.target.value)}
+                    placeholder="Örn: patlıcan, domates, yeşil biber, sarımsak, zeytinyağı"
+                  />
+                </div>
+
+                <label className="cookware-label">Hazırlanış Adımları (Her satıra 1 adım)</label>
+                <textarea
+                  rows={3}
+                  value={newRecipeStepsText}
+                  onChange={(e) => setNewRecipeStepsText(e.target.value)}
+                  placeholder="Sebzeleri küp doğrayın.&#10;Güveç kabına dizip kısık ateşte pişirin."
+                  style={{
+                    width: '100%',
+                    marginTop: '8px',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #cbd5e1',
+                    fontFamily: 'inherit',
+                    fontSize: '0.88rem',
+                  }}
+                />
+
+                <button type="submit" className="primary-cta-btn mt-3">
+                  <Check size={18} />
+                  <span>Tarifi Defterime Kaydet</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

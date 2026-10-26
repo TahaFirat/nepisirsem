@@ -28,6 +28,12 @@ import {
 } from '../utils/portionScaler';
 import type { ScaledIngredientResult } from '../utils/portionScaler';
 import { DishVisualHeader, resolveDishVisualTheme } from './DishVisualHeader';
+import {
+  triggerNativeHaptic,
+  scheduleNativeCookingTimer,
+  cancelNativeCookingTimer,
+  triggerTimerFinishedChime,
+} from '../utils/nativeBridge';
 
 interface RecipeDetailModalProps {
   matchedRecipe: MatchedRecipe | null;
@@ -84,6 +90,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       setTimerSecondsLeft((prev) => {
         if (prev <= 1) {
           setIsTimerRunning(false);
+          triggerTimerFinishedChime();
           return 0;
         }
         return prev - 1;
@@ -121,19 +128,38 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   };
 
   const toggleStep = (idx: number) => {
+    triggerNativeHaptic('light');
     setCompletedSteps((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
     );
   };
 
   const startStepTimer = (idx: number, minutes: number) => {
+    triggerNativeHaptic('medium');
+    const stepObj = recipe.steps[idx];
     if (activeTimerStep === idx) {
-      setIsTimerRunning(!isTimerRunning);
+      const nextRunning = !isTimerRunning;
+      setIsTimerRunning(nextRunning);
+      if (nextRunning) {
+        scheduleNativeCookingTimer(
+          timerSecondsLeft,
+          recipe.title,
+          stepObj?.title || 'Pişirme Adımı'
+        );
+      } else {
+        cancelNativeCookingTimer();
+      }
       return;
     }
+    const totalSecs = minutes * 60;
     setActiveTimerStep(idx);
-    setTimerSecondsLeft(minutes * 60);
+    setTimerSecondsLeft(totalSecs);
     setIsTimerRunning(true);
+    scheduleNativeCookingTimer(
+      totalSecs,
+      recipe.title,
+      stepObj?.title || 'Pişirme Adımı'
+    );
   };
 
   const formatTimer = (secs: number) => {
