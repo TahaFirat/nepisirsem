@@ -2,7 +2,7 @@ import type { Recipe, RecipeCategory, RecipeIngredient, RecipeStep } from '../ty
 import { COMPACT_TURKISH_ARCHIVE, WORLD_CUISINE_RAW } from './generatedArchive';
 import { REGIONAL_ANATOLIAN_CATALOG } from './regionalTurkishCatalog';
 import { ALL_RECIPES } from './recipes';
-import { canonicalizeIngredientName } from './ingredients';
+import { canonicalizeIngredientName, COMPOSITE_INGREDIENT_EXPANSIONS } from './ingredients';
 import { resolveDishVisualTheme } from '../components/DishVisualHeader';
 
 const CATEGORY_EMOJI: Record<Exclude<RecipeCategory, 'tumu'>, string> = {
@@ -546,11 +546,27 @@ export function buildAccurateTurkishSteps(
 
 let cachedFullArchive: Recipe[] | null = null;
 
-function normalizeAndDeduplicateIngredients(ings: RecipeIngredient[]): RecipeIngredient[] {
+function normalizeAndDeduplicateIngredients(
+  ings: RecipeIngredient[],
+  dishCategory: string = 'et_tavuk'
+): RecipeIngredient[] {
   const seen = new Set<string>();
   const result: RecipeIngredient[] = [];
   for (let i = 0; i < ings.length; i++) {
-    const canonicalName = canonicalizeIngredientName(ings[i].name);
+    const rawLower = ings[i].name.toLowerCase().trim();
+    const expandedNames = COMPOSITE_INGREDIENT_EXPANSIONS[rawLower];
+    if (expandedNames) {
+      for (let j = 0; j < expandedNames.length; j++) {
+        const canonicalSub = canonicalizeIngredientName(expandedNames[j]);
+        if (!seen.has(canonicalSub)) {
+          seen.add(canonicalSub);
+          result.push(inferTurkishIngredientAmount(canonicalSub, dishCategory));
+        }
+      }
+      continue;
+    }
+
+    const canonicalName = canonicalizeIngredientName(rawLower);
     if (!seen.has(canonicalName)) {
       seen.add(canonicalName);
       result.push({

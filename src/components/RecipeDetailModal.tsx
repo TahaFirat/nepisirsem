@@ -74,6 +74,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const currentRecipeId = matchedRecipe?.recipe.id;
+  const expandedPantry = useMemo(() => expandPantrySet(pantryItems), [pantryItems]);
 
   useEffect(() => {
     if (matchedRecipe) {
@@ -122,8 +123,6 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     servings,
     recipe.category
   );
-
-  const expandedPantry = useMemo(() => expandPantrySet(pantryItems), [pantryItems]);
 
   const isIngredientInPantry = (name: string) => {
     return isIngredientAvailableInPantry(name, expandedPantry);
@@ -241,6 +240,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
           title={recipe.title}
           category={recipe.category}
           emoji={recipe.emoji}
+          image={recipe.image}
           height={220}
           className="modal-hero"
         >

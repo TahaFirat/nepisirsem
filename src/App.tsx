@@ -55,7 +55,7 @@ interface ShoppingItem {
 
 type ActiveTab = 'kiler' | 'tarifler' | 'menu' | 'favoriler' | 'alisveris';
 
-const PANTRY_STORAGE_KEY = 'nepisirsem_pantry_v4_strict';
+const PANTRY_STORAGE_KEY = 'nepisirsem_pantry_v5_strict';
 
 const DEFAULT_PANTRY = ['su', 'tuz', 'sıvı yağ'];
 
@@ -181,6 +181,7 @@ const RecipeCardItem = React.memo<RecipeCardItemProps>(
           title={recipe.title}
           category={recipe.category}
           emoji={recipe.emoji}
+          image={recipe.image}
           height={176}
           className="recipe-card-media"
         >
@@ -923,6 +924,7 @@ export function App() {
                             title={recipe.title}
                             category={recipe.category}
                             emoji={recipe.emoji}
+                            image={recipe.image}
                             height={88}
                           />
                         </div>

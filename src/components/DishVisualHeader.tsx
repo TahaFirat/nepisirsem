@@ -5,6 +5,7 @@ interface DishVisualHeaderProps {
   title: string;
   category: Exclude<RecipeCategory, 'tumu'>;
   emoji?: string;
+  image?: string;
   height?: number;
   className?: string;
   children?: React.ReactNode;
