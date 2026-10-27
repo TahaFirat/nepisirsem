@@ -19,7 +19,13 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler 
         if let wkWebView = self.webView {
             wkWebView.configuration.userContentController.add(self, name: "nepisirsemNative")
             wkWebView.scrollView.showsHorizontalScrollIndicator = false
+            wkWebView.scrollView.alwaysBounceHorizontal = false
+            wkWebView.scrollView.contentInsetAdjustmentBehavior = .never
             wkWebView.allowsBackForwardNavigationGestures = false
+            let warmBg = UIColor(red: 0.992, green: 0.980, blue: 0.965, alpha: 1.0)
+            wkWebView.isOpaque = false
+            wkWebView.backgroundColor = warmBg
+            wkWebView.scrollView.backgroundColor = warmBg
         }
     }
 

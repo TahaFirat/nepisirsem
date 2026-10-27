@@ -935,7 +935,15 @@ input {
   margin-bottom: 0;
 }
 
-.ready-filter-toggle {
+.toolbar-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ready-filter-toggle,
+.add-custom-recipe-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -949,7 +957,18 @@ input {
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.add-custom-recipe-btn {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: var(--primary-dark);
+}
+
+.add-custom-recipe-btn:active,
+.ready-filter-toggle:active {
+  transform: scale(0.97);
 }
 
 .ready-filter-toggle.active {
@@ -957,6 +976,12 @@ input {
   border-color: var(--emerald);
   color: #fff;
   box-shadow: 0 3px 10px rgba(22, 163, 74, 0.22);
+}
+
+.origin-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ================= TARİF KARTLARI IZGARASI ================= */
@@ -2056,21 +2081,21 @@ input {
 
 /* ================= RESPONSIVE, TABLET VE TELEFON ÖZEL KURALLARI ================= */
 @media (max-width: 1024px) {
-  /* Üst durum çubuğu (saat/şarj) ile çakışmayı önleyen ferah safe-area üst boşluk */
+  /* Üst durum çubuğu (saat/şarj) ile çakışmayı önleyen dengeli safe-area üst boşluk */
   .main-header {
-    padding: max(38px, calc(env(safe-area-inset-top, 26px) + 14px)) 16px 14px;
+    padding: max(12px, calc(env(safe-area-inset-top, 20px) + 6px)) 16px 10px;
   }
 
   .main-workspace {
     grid-template-columns: 1fr;
     padding: 0 14px;
-    margin-top: 18px;
-    margin-bottom: 168px;
+    margin-top: 14px;
+    margin-bottom: calc(150px + env(safe-area-inset-bottom, 8px));
   }
 
   .panel-card {
-    padding: 18px;
-    border-radius: 20px;
+    padding: 16px;
+    border-radius: 18px;
   }
 
   .tab-inactive-mobile {
@@ -2085,10 +2110,19 @@ input {
     display: grid;
   }
 
+  /* iOS otomatik yakınlaştırmayı (auto-zoom) engellemek için input font boyutu 16px */
+  .search-input-box input,
+  .shopping-add-form input,
+  .modal-section input,
+  .modal-section select,
+  .modal-section textarea {
+    font-size: 16px !important;
+  }
+
   /* Tablet ve geniş telefonlarda (601px - 1024px) malzemeleri 3-4 sütunlu dengeli ızgara yap */
   .ingredients-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 11px;
+    gap: 10px;
     height: auto;
     max-height: none;
     overflow-y: visible;
@@ -2100,11 +2134,13 @@ input {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(74px + env(safe-area-inset-bottom, 6px));
+    bottom: calc(64px + env(safe-area-inset-bottom, 6px));
     z-index: 48;
     margin-top: 0;
-    padding: 10px 14px;
-    background: #fdfaf6;
+    padding: 9px 14px;
+    background: rgba(253, 250, 246, 0.96);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-top: 1px solid #f1e9df;
     box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08);
   }
@@ -2128,35 +2164,55 @@ input {
   }
 }
 
-/* Telefonlar (<= 600px) */
+/* Telefonlar / Tüm iPhone Modelleri (<= 600px) */
 @media (max-width: 600px) {
   .main-header {
-    padding: max(36px, calc(env(safe-area-inset-top, 24px) + 12px)) 14px 12px;
+    padding: max(10px, calc(env(safe-area-inset-top, 20px) + 4px)) 12px 9px;
   }
 
-  .main-workspace {
-    padding: 0 12px;
-    margin-top: 16px;
-    margin-bottom: 164px;
+  .header-top-row {
+    gap: 6px;
+  }
+
+  .brand-block {
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
   }
 
   .brand-logo {
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
   }
 
   .brand-title-line h1 {
-    font-size: 1.12rem;
+    font-size: 1.02rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .version-pill {
-    font-size: 0.62rem;
-    padding: 1px 6px;
+  .header-actions-row {
+    gap: 5px;
   }
 
-  .mobile-toggle-btn {
+  .servings-users-icon {
     display: none;
+  }
+
+  .global-servings-pill {
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .servings-pill-val {
+    font-size: 0.75rem;
+    min-width: 44px;
+  }
+
+  .mini-step-btn {
+    width: 24px;
+    height: 24px;
   }
 
   .surprise-btn-label {
@@ -2164,59 +2220,189 @@ input {
   }
 
   .surprise-me-btn {
-    padding: 8px 11px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .info-guide-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .main-workspace {
+    padding: 0 10px;
+    margin-top: 10px;
+    margin-bottom: calc(146px + env(safe-area-inset-bottom, 8px));
   }
 
   .panel-card {
-    padding: 16px 14px;
-    border-radius: 18px;
+    padding: 13px 11px;
+    border-radius: 16px;
   }
 
   .panel-card-header.pantry-header-row {
-    flex-wrap: wrap;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   .header-title-wrap h2 {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+  }
+
+  .header-title-wrap p {
+    font-size: 0.76rem;
+  }
+
+  .header-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .clear-pantry-btn,
+  .share-list-btn {
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 0.78rem;
   }
 
   .presets-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   .preset-chip {
-    padding: 11px 11px;
-    font-size: 0.8rem;
+    padding: 9px 10px;
+    font-size: 0.77rem;
+    border-radius: 11px;
+  }
+
+  .preset-icon-badge {
+    width: 21px;
+    height: 21px;
+  }
+
+  .search-input-box {
+    margin-bottom: 11px;
+  }
+
+  .search-input-box input {
+    padding: 11px 34px 11px 38px;
+    border-radius: 12px;
+  }
+
+  .category-pills-row {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .cat-pill {
+    padding: 7px 12px;
+    font-size: 0.78rem;
   }
 
   .ingredients-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
 
   .ingredient-chip-btn {
-    padding: 11px 11px;
-    min-height: 48px;
+    padding: 9px 9px;
+    min-height: 44px;
+    gap: 7px;
+    border-radius: 11px;
   }
 
   .ing-emoji {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
   }
 
   .ing-label {
-    font-size: 0.83rem;
+    font-size: 0.79rem;
+  }
+
+  .ing-check {
+    width: 21px;
+    height: 21px;
+  }
+
+  .cuisine-origin-tabs {
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 11px;
+  }
+
+  .origin-tab-btn {
+    font-size: 0.74rem;
+    padding: 7px 4px;
+    gap: 4px;
+    border-radius: 9px;
+  }
+
+  .origin-count {
+    font-size: 0.64rem;
+    padding: 1px 5px;
+  }
+
+  .recipes-filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .toolbar-actions-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .ready-filter-toggle,
+  .add-custom-recipe-btn {
+    justify-content: center;
+    padding: 9px 10px;
+    font-size: 0.79rem;
+    border-radius: 11px;
   }
 
   .recipe-cards-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 
-  .origin-tab-btn {
-    font-size: 0.78rem;
-    padding: 8px 6px;
+  .mobile-bottom-nav {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 6px));
+    border-radius: 18px 18px 0 0;
+  }
+
+  .nav-icon-pill {
+    width: 46px;
+    height: 28px;
+  }
+
+  .nav-tab-item {
+    font-size: 0.68rem;
+    gap: 3px;
+  }
+
+  .mobile-cta-footer {
+    bottom: calc(60px + env(safe-area-inset-bottom, 6px));
+    padding: 8px 12px;
+  }
+
+  .primary-cta-btn {
+    padding: 12px 14px;
+    font-size: 0.88rem;
+    border-radius: 12px;
   }
 
   .modal-backdrop {
@@ -2225,8 +2411,23 @@ input {
   }
 
   .modal-sheet {
-    max-height: 92vh;
-    border-radius: 22px 22px 0 0;
+    max-height: calc(100dvh - env(safe-area-inset-top, 20px) - 8px);
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-scroll-body {
+    padding: 13px 12px calc(18px + env(safe-area-inset-bottom, 10px));
+    gap: 12px;
+  }
+
+  .portion-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .portion-stepper {
+    justify-content: space-between;
   }
 }
 

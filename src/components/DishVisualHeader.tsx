@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { RecipeCategory } from '../types/recipe';
 
 interface DishVisualHeaderProps {
@@ -20,7 +20,30 @@ export interface VisualTheme {
 }
 
 /**
- * Yemek başlığına göre en uygun mutfak emojisini seçer
+ * Yemek adına özel gerçek ve orijinal yemek fotoğrafı URL'si üretir (Play Store & App Store ortak görsel motoru)
+ */
+export function getOriginalDishPhotoUrl(
+  title: string,
+  category?: Exclude<RecipeCategory, 'tumu'>
+): string {
+  const baseName = title
+    .replace(/\(([^)]+)\)/g, ' $1 ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const suffix =
+    category === 'tatli'
+      ? 'tatlısı tabak'
+      : category === 'corba'
+      ? 'çorbası kase'
+      : 'yemeği tabak';
+
+  const query = `${baseName} ${suffix}`;
+  return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query)}&w=640&h=420&c=7&rs=1&p=0`;
+}
+
+/**
+ * Yemek başlığına göre en uygun mutfak emojisini seçer (çevrimdışı yedek)
  */
 export function resolveDishSpecificEmoji(
   title: string,
@@ -31,7 +54,7 @@ export function resolveDishSpecificEmoji(
   if (t.includes('balık') || t.includes('hamsi') || t.includes('somon') || t.includes('levrek') || t.includes('çupra') || t.includes('palamut')) return '🐟';
   if (t.includes('karides') || t.includes('kalamar')) return '🍤';
   if (t.includes('kebap') || t.includes('şiş') || t.includes('adana') || t.includes('beyti') || t.includes('cağ')) return '🍢';
-  if (t.includes('köfte') || t.includes('kبe') || t.includes('içli köfte') || t.includes('fellah')) return '🧆';
+  if (t.includes('köfte') || t.includes('içli köfte') || t.includes('fellah')) return '🧆';
   if (t.includes('tavuk') || t.includes('piliç') || t.includes('kanat') || t.includes('baget')) return '🍗';
   if (t.includes('mantı') || t.includes('ravioli') || t.includes('hingel')) return '🥟';
   if (t.includes('makarna') || t.includes('spagetti') || t.includes('fettuccine') || t.includes('penne') || t.includes('erişte') || t.includes('noodle')) return '🍝';
@@ -162,8 +185,14 @@ export function resolveDishVisualTheme(
 
 export const DishVisualHeader: React.FC<DishVisualHeaderProps> = React.memo(
   ({ title, category, emoji, height = 172, className = '', children }) => {
+    const [imgError, setImgError] = useState(false);
     const theme = resolveDishVisualTheme(title, category);
     const displayEmoji = resolveDishSpecificEmoji(title, category, emoji || theme.iconEmoji);
+    const photoUrl = getOriginalDishPhotoUrl(title, category);
+
+    useEffect(() => {
+      setImgError(false);
+    }, [title, category]);
 
     return (
       <div
@@ -173,27 +202,39 @@ export const DishVisualHeader: React.FC<DishVisualHeaderProps> = React.memo(
           background: theme.gradient,
         }}
       >
-        {/* Dekoratif Mutfak İllüstrasyon Katmanı (%100 Yerel & Çevrimdışı) */}
-        <div className="dish-illustrated-pattern" aria-hidden="true">
-          <span className="dish-pattern-circle c1" />
-          <span className="dish-pattern-circle c2" />
+        {!imgError ? (
+          <>
+            <img
+              src={photoUrl}
+              alt={title}
+              className="dish-visual-img"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
+            />
+            <div className="dish-visual-gradient-overlay" />
+          </>
+        ) : (
+          <div className="dish-illustrated-pattern" aria-hidden="true">
+            <span className="dish-pattern-circle c1" />
+            <span className="dish-pattern-circle c2" />
 
-          <div className="dish-center-emblem">
-            <div className="emblem-plate-ring">
-              <span className="emblem-emoji">{displayEmoji}</span>
+            <div className="dish-center-emblem">
+              <div className="emblem-plate-ring">
+                <span className="emblem-emoji">{displayEmoji}</span>
+              </div>
+              {height >= 140 && (
+                <>
+                  <span className="emblem-cat-tag">{theme.patternLabel}</span>
+                  <span className="emblem-cookware-sub">
+                    {theme.cookwareHint} • {theme.heatHint}
+                  </span>
+                </>
+              )}
             </div>
-            {height >= 140 && (
-              <>
-                <span className="emblem-cat-tag">{theme.patternLabel}</span>
-                <span className="emblem-cookware-sub">
-                  {theme.cookwareHint} • {theme.heatHint}
-                </span>
-              </>
-            )}
+            <div className="dish-visual-gradient-overlay" />
           </div>
-        </div>
-
-        <div className="dish-visual-gradient-overlay" />
+        )}
         {children}
       </div>
     );

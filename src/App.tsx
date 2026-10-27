@@ -694,7 +694,7 @@ export function App() {
           <div className="header-actions-row">
             {/* KİŞİ SAYISI KONTROLÜ */}
             <div className="global-servings-pill">
-              <Users size={16} className="text-rose shrink-0" />
+              <Users size={16} className="text-rose shrink-0 servings-users-icon" />
               <button
                 type="button"
                 className="mini-step-btn"
@@ -722,19 +722,6 @@ export function App() {
             >
               <Dices size={17} />
               <span className="surprise-btn-label">Bana Öner</span>
-            </button>
-
-            <button
-              type="button"
-              className="info-guide-btn"
-              onClick={() => {
-                triggerNativeHaptic('light');
-                setIsAddRecipeModalOpen(true);
-              }}
-              aria-label="Kendi Tarifini Ekle"
-              title="Kendi Tarifini Ekle"
-            >
-              <Plus size={18} />
             </button>
 
             <button
@@ -1023,7 +1010,7 @@ export function App() {
                     setSelectedCity('tumu');
                   }}
                 >
-                  <span>🍽️ Tümü</span>
+                  <span className="origin-label">🍽️ Tümü</span>
                   <span className="origin-count">{matchedRecipes.length}</span>
                 </button>
                 <button
@@ -1031,7 +1018,7 @@ export function App() {
                   className={`origin-tab-btn ${cuisineFilter === 'turkish' ? 'active' : ''}`}
                   onClick={() => setCuisineFilter('turkish')}
                 >
-                  <span>🇹🇷 Türk Mutfağı</span>
+                  <span className="origin-label">🇹🇷 Türkiye</span>
                   <span className="origin-count">{turkishCount}</span>
                 </button>
                 <button
@@ -1042,7 +1029,7 @@ export function App() {
                     setSelectedCity('tumu');
                   }}
                 >
-                  <span>🌍 Dünya</span>
+                  <span className="origin-label">🌍 Dünya</span>
                   <span className="origin-count">{worldCount}</span>
                 </button>
               </div>
@@ -1055,7 +1042,7 @@ export function App() {
                     type="text"
                     value={recipeSearch}
                     onChange={(e) => setRecipeSearch(e.target.value)}
-                    placeholder="Yemek, şehir veya malzeme ara (Örn: Gaziantep, mantı, kebap...)"
+                    placeholder="Yemek, şehir veya malzeme ara..."
                   />
                   {recipeSearch && (
                     <button
@@ -1068,14 +1055,29 @@ export function App() {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  className={`ready-filter-toggle ${onlyReadyToCook ? 'active' : ''}`}
-                  onClick={() => setOnlyReadyToCook(!onlyReadyToCook)}
-                >
-                  <CheckCircle2 size={16} />
-                  <span>Hazır ({readyToCookCount})</span>
-                </button>
+                <div className="toolbar-actions-group">
+                  <button
+                    type="button"
+                    className={`ready-filter-toggle ${onlyReadyToCook ? 'active' : ''}`}
+                    onClick={() => setOnlyReadyToCook(!onlyReadyToCook)}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Hazır ({readyToCookCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="add-custom-recipe-btn"
+                    onClick={() => {
+                      triggerNativeHaptic('light');
+                      setIsAddRecipeModalOpen(true);
+                    }}
+                    title="Kendi Tarifini Ekle"
+                  >
+                    <Plus size={16} />
+                    <span>Tarif Ekle</span>
+                  </button>
+                </div>
               </div>
 
               {/* YEMEK KATEGORİLERİ */}
