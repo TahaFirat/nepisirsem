@@ -1,140 +1,27 @@
 import type { MatchedRecipe, Recipe, RecipeIngredient } from '../types/recipe';
-import { INGREDIENTS_DATA } from '../data/ingredients';
+import { INGREDIENTS_DATA, canonicalizeIngredientName } from '../data/ingredients';
 
-// Her evde varsayılan olarak bulunan temel malzemeler (Su, Tuz, Yağ, Salça, Un, Şeker, Temel Baharatlar)
-const STAPLE_NAMES = new Set(
-  INGREDIENTS_DATA.filter((i) => i.isStaple).map((i) => i.name.toLowerCase().trim())
-);
-
-// Önceden hesaplanmış malzeme eş anlamlılar (alias) tablosu — her tıklamada tekrar dizi oluşturulmasını önler
+// Önceden hesaplanmış malzeme eş anlamlılar (alias) tablosu
 const PRECOMPUTED_ALIAS_GROUPS: Array<{ mainName: string; aliases: string[] }> =
   INGREDIENTS_DATA.map((item) => ({
     mainName: item.name.toLowerCase().trim(),
     aliases: (item.aliases || []).map((a) => a.toLowerCase().trim()),
   }));
 
-// Yemeğin ana adında geçmiyorsa süsleme/lezzet verici olarak kabul edilen,
-// evde olmasa bile yemeğin pişirilmesine engel olmayan yardımcı malzemeler
-const GARNISH_OR_SUBSTITUTABLE = new Set([
-  'et suyu',
-  'tavuk suyu',
-  'susam',
-  'çörek otu',
-  'defne yaprağı',
-  'çam fıstığı',
-  'kuş üzümü',
-  'hindistan cevizi',
-  'kaymak',
-  'maydanoz',
-  'dereotu',
-  'taze nane',
-  'taze soğan',
-  'limon',
-  'limon suyu',
-  'sirke',
-  'nar ekşisi',
-  'koruk ekşisi',
-  'sumak',
-  'tarçın',
-  'karanfil',
-  'yenibahar',
-  'mahlep',
-  'zerdeçal',
-  'zencefil',
-  'isot',
-  'toz biber',
-  'pul biber',
-  'karabiber',
-  'kimyon',
-  'kekik',
-  'nane',
-  'kaya tuzu',
-  'pudra şekeri',
-  'vanilya',
-]);
-
 /**
- * Bir malzemenin o tarif için zorunlu ana malzeme mi yoksa opsiyonel/yardımcı mı olduğunu belirler
+ * Kullanıcının Kilerim'de seçtiği malzemeleri (ve birebir isim eş anlamlılarını)
+ * O(1) arama kümesine dönüştürür.
+ * Kilerde seçili OLMAYAN hiçbir malzeme bu kümeye eklenmez.
  */
-export function isIngredientEffectivelyOptional(
-  ing: RecipeIngredient,
-  recipeTitle: string
-): boolean {
-  if (ing.isOptional) return true;
-  const ingName = ing.name.toLowerCase().trim();
-  const titleLower = recipeTitle.toLowerCase();
-
-  // Eğer malzeme yemeğin bizzat adında geçiyorsa (Örn: "Dereotlu Poğaça", "Susamlı Simit") zorunludur
-  const rootWord = ingName.split(' ')[0];
-  if (rootWord.length >= 4 && titleLower.includes(rootWord)) {
-    return false;
-  }
-
-  if (GARNISH_OR_SUBSTITUTABLE.has(ingName)) {
-    return true;
-  }
-
-  // Ceviz, fındık, badem, antep fıstığı yemeğin adında geçmiyorsa süslemedir (opsiyoneldir)
-  if (
-    (ingName === 'ceviz' ||
-      ingName === 'fındık' ||
-      ingName === 'badem' ||
-      ingName === 'antep fıstığı') &&
-    !titleLower.includes('ceviz') &&
-    !titleLower.includes('fındık') &&
-    !titleLower.includes('badem') &&
-    !titleLower.includes('fıstık')
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-interface CachedIngredientMeta {
-  ing: RecipeIngredient;
-  ingName: string;
-  optionalForDish: boolean;
-  isStaple: boolean;
-  isWaterOrSalt: boolean;
-}
-
-// Tarif başına malzeme analizini önbelleğe alır (605 tarif x ~8 malzeme = ~5000 string işlemini sıfıra indirir)
-const RECIPE_META_CACHE = new WeakMap<Recipe, CachedIngredientMeta[]>();
-
-function getRecipeIngredientMeta(recipe: Recipe): CachedIngredientMeta[] {
-  let cached = RECIPE_META_CACHE.get(recipe);
-  if (!cached) {
-    cached = recipe.ingredients.map((ing) => {
-      const ingName = ing.name.toLowerCase().trim();
-      return {
-        ing,
-        ingName,
-        optionalForDish: isIngredientEffectivelyOptional(ing, recipe.title),
-        isStaple: STAPLE_NAMES.has(ingName),
-        isWaterOrSalt: ingName === 'su' || ingName === 'tuz',
-      };
-    });
-    RECIPE_META_CACHE.set(recipe, cached);
-  }
-  return cached;
-}
-
-/**
- * Kullanıcının seçtiği malzemelerle (pantry) tarifleri karşılaştırır,
- * eksikleri, eşleşme yüzdesini ve hemen pişirilebilirlik durumunu %100 doğru ve anlık hesaplar.
- */
-export function matchRecipesWithPantry(
-  recipes: Recipe[],
-  pantryItems: string[],
-  assumeBasicStaples: boolean = false
-): MatchedRecipe[] {
+export function expandPantrySet(pantryItems: string[]): Set<string> {
   const normalizedPantry = new Set<string>();
   for (let i = 0; i < pantryItems.length; i++) {
-    normalizedPantry.add(pantryItems[i].toLowerCase().trim());
+    const raw = pantryItems[i].toLowerCase().trim();
+    if (!raw) continue;
+    normalizedPantry.add(raw);
+    normalizedPantry.add(canonicalizeIngredientName(raw));
   }
 
-  // Eş anlamlıları da kilere dahil et (Örn: 'bulgur' <-> 'pilavlık bulgur', 'salça' <-> 'biber salçası')
   for (let i = 0; i < PRECOMPUTED_ALIAS_GROUPS.length; i++) {
     const group = PRECOMPUTED_ALIAS_GROUPS[i];
     if (normalizedPantry.has(group.mainName)) {
@@ -158,27 +45,54 @@ export function matchRecipesWithPantry(
     }
   }
 
-  // Pratik Türk mutfağı ikameleri (Örn: sıvı yağ veya zeytinyağı veya tereyağı varsa yağ ihtiyacı karşılanır)
-  if (
-    normalizedPantry.has('sıvı yağ') ||
-    normalizedPantry.has('zeytinyağı') ||
-    normalizedPantry.has('tereyağı')
-  ) {
-    normalizedPantry.add('sıvı yağ');
-  }
-  if (normalizedPantry.has('salça') || normalizedPantry.has('biber salçası')) {
-    normalizedPantry.add('salça');
-    normalizedPantry.add('biber salçası');
-  }
-  if (normalizedPantry.has('yoğurt') || normalizedPantry.has('süzme yoğurt')) {
-    normalizedPantry.add('yoğurt');
-    normalizedPantry.add('süzme yoğurt');
-  }
-  if (normalizedPantry.has('pilavlık bulgur') || normalizedPantry.has('bulgur')) {
-    normalizedPantry.add('pilavlık bulgur');
-    normalizedPantry.add('bulgur');
-  }
+  return normalizedPantry;
+}
 
+/**
+ * Bir malzemenin kullanıcının kilerinde gerçekten seçili olup olmadığını kontrol eder.
+ */
+export function isIngredientAvailableInPantry(
+  ingName: string,
+  expandedPantry: Set<string>
+): boolean {
+  const clean = ingName.toLowerCase().trim();
+  const canonical = canonicalizeIngredientName(clean);
+  return expandedPantry.has(clean) || expandedPantry.has(canonical);
+}
+
+interface CachedIngredientMeta {
+  ing: RecipeIngredient;
+  ingName: string;
+  canonicalName: string;
+}
+
+const RECIPE_META_CACHE = new WeakMap<Recipe, CachedIngredientMeta[]>();
+
+function getRecipeIngredientMeta(recipe: Recipe): CachedIngredientMeta[] {
+  let cached = RECIPE_META_CACHE.get(recipe);
+  if (!cached) {
+    cached = recipe.ingredients.map((ing) => {
+      const ingName = ing.name.toLowerCase().trim();
+      return {
+        ing,
+        ingName,
+        canonicalName: canonicalizeIngredientName(ingName),
+      };
+    });
+    RECIPE_META_CACHE.set(recipe, cached);
+  }
+  return cached;
+}
+
+/**
+ * Kullanıcının seçtiği malzemelerle (pantry) tarifleri birebir (%100 kesin) karşılaştırır.
+ * Kilerde seçili olmayan HİÇBİR malzeme "var" sayılmaz; tamamı eksik listesine eklenir.
+ */
+export function matchRecipesWithPantry(
+  recipes: Recipe[],
+  pantryItems: string[]
+): MatchedRecipe[] {
+  const expandedPantry = expandPantrySet(pantryItems);
   const matchedList: MatchedRecipe[] = new Array(recipes.length);
 
   for (let r = 0; r < recipes.length; r++) {
@@ -190,27 +104,26 @@ export function matchRecipesWithPantry(
 
     for (let i = 0; i < metas.length; i++) {
       const meta = metas[i];
-      if (meta.isWaterOrSalt || normalizedPantry.has(meta.ingName)) {
+      if (
+        expandedPantry.has(meta.ingName) ||
+        expandedPantry.has(meta.canonicalName)
+      ) {
         usedIngredients.push(meta.ing);
-      } else if (meta.optionalForDish) {
-        stapleIngredients.push(meta.ing);
-      } else if (assumeBasicStaples && meta.isStaple) {
-        stapleIngredients.push(meta.ing);
       } else {
         missingIngredients.push(meta.ing);
       }
     }
 
-    const coreRequiredCount = Math.max(
+    const totalRequiredCount = Math.max(
       1,
       usedIngredients.length + missingIngredients.length
     );
 
     let matchPercentage = Math.round(
-      (usedIngredients.length / coreRequiredCount) * 100
+      (usedIngredients.length / totalRequiredCount) * 100
     );
     if (missingIngredients.length > 0 && matchPercentage >= 100) {
-      matchPercentage = 92;
+      matchPercentage = 95;
     }
     if (missingIngredients.length === 0) {
       matchPercentage = 100;

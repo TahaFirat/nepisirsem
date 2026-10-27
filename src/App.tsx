@@ -28,6 +28,7 @@ import {
   INGREDIENTS_DATA,
   INGREDIENT_CATEGORIES,
   QUICK_PANTRY_PRESETS,
+  canonicalizeIngredientName,
 } from './data/ingredients';
 import { RECIPE_CATEGORIES } from './data/recipes';
 import { getFullRecipeArchive } from './data/legacyRecipesBridge';
@@ -38,7 +39,7 @@ import type {
   Recipe,
   RecipeCategory,
 } from './types/recipe';
-import { matchRecipesWithPantry } from './utils/recipeMatcher';
+import { matchRecipesWithPantry, expandPantrySet } from './utils/recipeMatcher';
 import { RecipeDetailModal } from './components/RecipeDetailModal';
 import { DishVisualHeader } from './components/DishVisualHeader';
 import { triggerNativeHaptic } from './utils/nativeBridge';
@@ -54,36 +55,9 @@ interface ShoppingItem {
 
 type ActiveTab = 'kiler' | 'tarifler' | 'menu' | 'favoriler' | 'alisveris';
 
-const DEFAULT_PANTRY = [
-  'su',
-  'tuz',
-  'sıvı yağ',
-  'zeytinyağı',
-  'tereyağı',
-  'salça',
-  'biber salçası',
-  'soğan',
-  'sarımsak',
-  'un',
-  'şeker',
-  'domates',
-  'patates',
-  'yumurta',
-  'yeşil biber',
-  'kırmızı mercimek',
-  'pirinç',
-  'pilavlık bulgur',
-  'köftelik bulgur',
-  'yoğurt',
-  'süt',
-  'karabiber',
-  'pul biber',
-  'nane',
-  'kekik',
-  'kimyon',
-  'limon',
-  'limon suyu',
-];
+const PANTRY_STORAGE_KEY = 'nepisirsem_pantry_v4_strict';
+
+const DEFAULT_PANTRY = ['su', 'tuz', 'sıvı yağ'];
 
 // Birebir İl Filtreleri (Gaziantep seçilince SADECE Gaziantep çıkar)
 const CITY_FILTERS = [
@@ -276,11 +250,15 @@ const RecipeCardItem = React.memo<RecipeCardItemProps>(
 
 export function App() {
   const [pantry, setPantry] = useState<string[]>(() => {
-    const saved = localStorage.getItem('nepisirsem_pantry_v2');
-    if (saved) {
+    const saved = localStorage.getItem(PANTRY_STORAGE_KEY);
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return Array.from(
+            new Set(parsed.map((item) => canonicalizeIngredientName(String(item))))
+          );
+        }
       } catch {
         // ignore
       }
@@ -312,8 +290,7 @@ export function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [customShoppingInput, setCustomShoppingInput] = useState<string>('');
-  const [selectedMatchedRecipe, setSelectedMatchedRecipe] =
-    useState<MatchedRecipe | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [menuSeed, setMenuSeed] = useState<number>(0);
   const [shoppingCopiedToast, setShoppingCopiedToast] = useState<boolean>(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
@@ -341,32 +318,38 @@ export function App() {
     setVisibleCount(24);
   }, [selectedRecipeCat, cuisineFilter, selectedCity, onlyReadyToCook, recipeSearch]);
 
-  // O(1) hızlı erişim kümeleri
-  const pantrySet = useMemo(
-    () => new Set(pantry.map((item) => item.toLowerCase())),
-    [pantry]
-  );
+  // O(1) hızlı erişim kümeleri (%100 Kilerim ile birebir senkron)
+  const pantrySet = useMemo(() => expandPantrySet(pantry), [pantry]);
 
   const favoritesSet = useMemo(() => new Set(favorites), [favorites]);
 
   const toggleIngredient = useCallback((name: string) => {
     triggerNativeHaptic('light');
-    const lower = name.toLowerCase();
+    const canonical = canonicalizeIngredientName(name);
     setPantry((prev) => {
-      const next = prev.includes(lower)
-        ? prev.filter((item) => item !== lower)
-        : [...prev, lower];
-      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(next));
-      return next;
+      const normalizedPrev = prev.map((item) => canonicalizeIngredientName(item));
+      const next = normalizedPrev.includes(canonical)
+        ? normalizedPrev.filter((item) => item !== canonical)
+        : [...normalizedPrev, canonical];
+      const uniqueNext = Array.from(new Set(next));
+      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(uniqueNext));
+      return uniqueNext;
     });
   }, []);
 
   const applyPreset = useCallback((items: string[]) => {
     triggerNativeHaptic('medium');
+    const canonicalItems = items.map((i) => canonicalizeIngredientName(i));
     setPantry((prev) => {
-      const merged = Array.from(new Set([...prev, ...items.map((i) => i.toLowerCase())]));
-      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(merged));
-      return merged;
+      const normalizedPrev = prev.map((item) => canonicalizeIngredientName(item));
+      const prevSet = new Set(normalizedPrev);
+      const isAllIncluded = canonicalItems.every((it) => prevSet.has(it));
+      const removeSet = new Set(canonicalItems);
+      const updated = isAllIncluded
+        ? normalizedPrev.filter((item) => !removeSet.has(item))
+        : Array.from(new Set([...normalizedPrev, ...canonicalItems]));
+      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
     });
   }, []);
 
@@ -390,18 +373,21 @@ export function App() {
   }, [selectedIngredientCat, ingredientSearch]);
 
   const selectAllVisibleIngredients = useCallback(() => {
-    const visibleNames = filteredIngredients.map((i) => i.name.toLowerCase());
+    const visibleNames = filteredIngredients.map((i) => canonicalizeIngredientName(i.name));
     setPantry((prev) => {
-      const merged = Array.from(new Set([...prev, ...visibleNames]));
-      localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(merged));
+      const merged = Array.from(
+        new Set([...prev.map((p) => canonicalizeIngredientName(p)), ...visibleNames])
+      );
+      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(merged));
       return merged;
     });
   }, [filteredIngredients]);
 
   const clearPantry = useCallback(() => {
-    const reset = ['su', 'tuz'];
-    setPantry(reset);
-    localStorage.setItem('nepisirsem_pantry_v2', JSON.stringify(reset));
+    triggerNativeHaptic('medium');
+    const empty: string[] = [];
+    setPantry(empty);
+    localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(empty));
   }, []);
 
   const toggleFavorite = useCallback((recipeId: string) => {
@@ -415,7 +401,7 @@ export function App() {
   }, []);
 
   const handleSelectRecipe = useCallback((matched: MatchedRecipe) => {
-    setSelectedMatchedRecipe(matched);
+    setSelectedRecipeId(matched.recipe.id);
   }, []);
 
   const addMissingToShoppingList = useCallback(
@@ -478,7 +464,7 @@ export function App() {
 
     const parsedIngredients = newRecipeIngredientsText
       .split(/[\n,]+/)
-      .map((s) => s.trim().toLowerCase())
+      .map((s) => canonicalizeIngredientName(s))
       .filter(Boolean)
       .map((name) => ({
         name,
@@ -527,8 +513,16 @@ export function App() {
   };
 
   const matchedRecipes = useMemo(() => {
-    return matchRecipesWithPantry(allArchiveRecipes, pantry, true);
+    return matchRecipesWithPantry(allArchiveRecipes, pantry);
   }, [allArchiveRecipes, pantry]);
+
+  const selectedMatchedRecipe = useMemo(
+    () =>
+      selectedRecipeId
+        ? matchedRecipes.find((m) => m.recipe.id === selectedRecipeId) || null
+        : null,
+    [matchedRecipes, selectedRecipeId]
+  );
 
   const readyToCookCount = useMemo(
     () => matchedRecipes.filter((m) => m.canCookImmediately).length,
@@ -648,7 +642,7 @@ export function App() {
       spread: 55,
       origin: { y: 0.7 },
     });
-    setSelectedMatchedRecipe(randomPick);
+    setSelectedRecipeId(randomPick.recipe.id);
   };
 
   const displayedRecipes = useMemo(
@@ -772,7 +766,7 @@ export function App() {
             <div className="presets-grid">
               {QUICK_PANTRY_PRESETS.map((preset) => {
                 const isAllIncluded = preset.items.every((it) =>
-                  pantrySet.has(it.toLowerCase())
+                  pantrySet.has(canonicalizeIngredientName(it))
                 );
                 return (
                   <button
@@ -792,6 +786,39 @@ export function App() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* ŞU AN KİLERDE SEÇİLİ OLAN MALZEMELER ŞERİDİ */}
+            <div className="active-pantry-summary-box">
+              <div className="active-pantry-summary-header">
+                <span>
+                  ✅ Şu An Seçili Malzemeleriniz (<strong>{pantry.length}</strong>)
+                </span>
+                {pantry.length > 0 && (
+                  <small>Çıkarmak istediğiniz malzemeye dokunun</small>
+                )}
+              </div>
+              {pantry.length === 0 ? (
+                <p className="active-pantry-empty-hint">
+                  Kilerinizde şu an hiçbir malzeme seçili değil. Aşağıdan evinizdeki malzemeleri
+                  seçtiğinizde sadece o malzemelere uygun tarifler "Var" olarak işaretlenir.
+                </p>
+              ) : (
+                <div className="active-pantry-pills-strip">
+                  {pantry.map((itemName) => (
+                    <button
+                      type="button"
+                      key={itemName}
+                      className="active-pantry-mini-pill"
+                      onClick={() => toggleIngredient(itemName)}
+                      title="Kilerden çıkar"
+                    >
+                      <span>{itemName.charAt(0).toUpperCase() + itemName.slice(1)}</span>
+                      <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* MALZEME ARAMA */}
@@ -887,7 +914,7 @@ export function App() {
                     <div
                       key={idx}
                       className="menu-slot-card"
-                      onClick={() => setSelectedMatchedRecipe(matched)}
+                      onClick={() => setSelectedRecipeId(matched.recipe.id)}
                     >
                       <div className="menu-slot-role">{slot.role}</div>
                       <div className="menu-slot-body">
@@ -1454,7 +1481,7 @@ export function App() {
       {/* TARİF DETAY & PORSİYON HESAPLAMA MODALI */}
       <RecipeDetailModal
         matchedRecipe={selectedMatchedRecipe}
-        onClose={() => setSelectedMatchedRecipe(null)}
+        onClose={() => setSelectedRecipeId(null)}
         defaultServings={globalServings}
         isFavorite={
           selectedMatchedRecipe
@@ -1464,6 +1491,7 @@ export function App() {
         onToggleFavorite={toggleFavorite}
         onAddMissingToShoppingList={addMissingToShoppingList}
         pantryItems={pantry}
+        onTogglePantryIngredient={toggleIngredient}
       />
     </div>
   );

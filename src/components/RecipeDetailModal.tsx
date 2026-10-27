@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Users,
@@ -29,6 +29,10 @@ import {
 import type { ScaledIngredientResult } from '../utils/portionScaler';
 import { DishVisualHeader, resolveDishVisualTheme } from './DishVisualHeader';
 import {
+  expandPantrySet,
+  isIngredientAvailableInPantry,
+} from '../utils/recipeMatcher';
+import {
   triggerNativeHaptic,
   scheduleNativeCookingTimer,
   cancelNativeCookingTimer,
@@ -45,6 +49,7 @@ interface RecipeDetailModalProps {
     items: { name: string; measure: string; recipeTitle: string }[]
   ) => void;
   pantryItems: string[];
+  onTogglePantryIngredient?: (name: string) => void;
 }
 
 const PORTION_NUMBERS = [1, 2, 4, 6, 8, 12];
@@ -57,6 +62,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onToggleFavorite,
   onAddMissingToShoppingList,
   pantryItems,
+  onTogglePantryIngredient,
 }) => {
   const [servings, setServings] = useState<number>(defaultServings || 4);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -66,6 +72,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [addedToCartBanner, setAddedToCartBanner] = useState<boolean>(false);
   const [copiedBanner, setCopiedBanner] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+
+  const currentRecipeId = matchedRecipe?.recipe.id;
 
   useEffect(() => {
     if (matchedRecipe) {
@@ -82,7 +90,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       }
       setIsSpeaking(false);
     };
-  }, [matchedRecipe, defaultServings]);
+  }, [currentRecipeId, defaultServings]);
 
   useEffect(() => {
     if (!isTimerRunning || timerSecondsLeft <= 0) return;
@@ -115,16 +123,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     recipe.category
   );
 
-  const normalizedPantry = new Set(pantryItems.map((p) => p.toLowerCase().trim()));
+  const expandedPantry = useMemo(() => expandPantrySet(pantryItems), [pantryItems]);
 
   const isIngredientInPantry = (name: string) => {
-    const n = name.toLowerCase().trim();
-    return (
-      normalizedPantry.has(n) ||
-      n === 'su' ||
-      n === 'tuz' ||
-      !missingIngredients.some((m) => m.name.toLowerCase() === n)
-    );
+    return isIngredientAvailableInPantry(name, expandedPantry);
   };
 
   const toggleStep = (idx: number) => {
@@ -397,6 +399,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     className={`scaled-ingredient-row ${
                       inPantry ? 'in-pantry' : 'missing-pantry'
                     }`}
+                    onClick={() => onTogglePantryIngredient?.(ing.name)}
+                    style={{ cursor: onTogglePantryIngredient ? 'pointer' : 'default' }}
+                    title={
+                      inPantry
+                        ? 'Kilerinizde mevcut (Çıkarmak için dokunun)'
+                        : 'Kilerinizde eksik (Kilere eklemek için dokunun)'
+                    }
                   >
                     <div className="ing-status-icon">
                       {inPantry ? <Check size={15} /> : <AlertCircle size={15} />}
@@ -405,7 +414,10 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                       <span className="ing-name">
                         {ing.name.charAt(0).toUpperCase() + ing.name.slice(1)}
                       </span>
-                      {ing.note && <span className="ing-note">{ing.note}</span>}
+                      <span className="ing-note">
+                        {inPantry ? '✅ Kilerde Var' : '⚠️ Kilerde Yok (Eksik)'}
+                        {ing.note ? ` • ${ing.note}` : ''}
+                      </span>
                     </div>
                     <div className="ing-measure-badge">
                       <strong className="measure-primary">{ing.formattedMeasure}</strong>

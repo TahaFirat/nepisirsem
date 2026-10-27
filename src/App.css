@@ -627,6 +627,67 @@ input {
   color: #ffffff;
 }
 
+.active-pantry-summary-box {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 13px;
+  padding: 10px 12px;
+  margin-bottom: 13px;
+}
+
+.active-pantry-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #14532d;
+}
+
+.active-pantry-summary-header small {
+  font-size: 0.69rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.active-pantry-empty-hint {
+  font-size: 0.75rem;
+  color: #166534;
+  line-height: 1.38;
+}
+
+.active-pantry-pills-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 92px;
+  overflow-y: auto;
+}
+
+.active-pantry-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid #86efac;
+  background: #ffffff;
+  color: #14532d;
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.active-pantry-mini-pill:active {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
 /* ================= ARAMA KUTUSU & FİLTRELER ================= */
 .search-input-box {
   position: relative;

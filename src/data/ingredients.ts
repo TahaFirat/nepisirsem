@@ -64,7 +64,7 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'pirasa', name: 'pırasa', emoji: '🥬', category: 'sebze', defaultUnit: 'adet' },
   { id: 'karnabahar', name: 'karnabahar', emoji: '🥦', category: 'sebze', defaultUnit: 'adet' },
   { id: 'brokoli', name: 'brokoli', emoji: '🥦', category: 'sebze', defaultUnit: 'adet' },
-  { id: 'lahana', name: 'beyaz lahana', emoji: '🥬', category: 'sebze', defaultUnit: 'adet' },
+  { id: 'lahana', name: 'beyaz lahana', emoji: '🥬', category: 'sebze', defaultUnit: 'adet', aliases: ['lahana'] },
   { id: 'kara-lahana', name: 'kara lahana', emoji: '🥬', category: 'sebze', defaultUnit: 'demet' },
   { id: 'enginar', name: 'enginar', emoji: '💚', category: 'sebze', defaultUnit: 'adet' },
   { id: 'kereviz', name: 'kereviz', emoji: '🥬', category: 'sebze', defaultUnit: 'adet' },
@@ -80,18 +80,18 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'taze-sogan', name: 'taze soğan', emoji: '🧅', category: 'sebze', defaultUnit: 'demet' },
   { id: 'marul', name: 'marul', emoji: '🥬', category: 'sebze', defaultUnit: 'adet' },
   { id: 'asma-yapragi', name: 'asma yaprağı', emoji: '🍃', category: 'sebze', defaultUnit: 'gram' },
-  { id: 'misir', name: 'mısır konservesi', emoji: '🌽', category: 'sebze', defaultUnit: 'su bardağı' },
+  { id: 'misir', name: 'mısır konservesi', emoji: '🌽', category: 'sebze', defaultUnit: 'su bardağı', aliases: ['mısır'] },
   { id: 'balkabagi', name: 'balkabağı', emoji: '🎃', category: 'sebze', defaultUnit: 'gram' },
   { id: 'pancar', name: 'pancar', emoji: '🟣', category: 'sebze', defaultUnit: 'adet' },
   { id: 'avokado', name: 'avokado', emoji: '🥑', category: 'sebze', defaultUnit: 'adet' },
 
   // Et, Tavuk & Balık
   { id: 'kiyma', name: 'kıyma', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['dana kıyma', 'kuzu kıyma'] },
-  { id: 'kusbasi-et', name: 'kuşbaşı et', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['dana kuşbaşı'] },
+  { id: 'kusbasi-et', name: 'kuşbaşı et', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['dana kuşbaşı', 'kuşbaşı'] },
   { id: 'kuzu-kusbasi', name: 'kuzu kuşbaşı', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram' },
   { id: 'kuzu-kol', name: 'kuzu kol', emoji: '🍖', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['kuzu incik', 'kuzu kaburga'] },
   { id: 'kuzu-gerdan', name: 'kuzu gerdan', emoji: '🍖', category: 'et_tavuk', defaultUnit: 'gram' },
-  { id: 'bonfile', name: 'dana bonfile', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['biftek', 'antrikot'] },
+  { id: 'bonfile', name: 'dana bonfile', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['biftek', 'antrikot', 'bonfile'] },
   { id: 'kuyruk-yagi', name: 'kuyruk yağı', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram' },
   { id: 'tavuk-gogsu', name: 'tavuk göğsü', emoji: '🍗', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['tavuk'] },
   { id: 'tavuk-but', name: 'tavuk but', emoji: '🍗', category: 'et_tavuk', defaultUnit: 'adet', aliases: ['tavuk baget', 'tavuk pirzola'] },
@@ -101,10 +101,11 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'hamsi', name: 'hamsi', emoji: '🐟', category: 'et_tavuk', defaultUnit: 'gram' },
   { id: 'palamut', name: 'palamut', emoji: '🐟', category: 'et_tavuk', defaultUnit: 'adet' },
   { id: 'somon', name: 'somon', emoji: '🍣', category: 'et_tavuk', defaultUnit: 'adet' },
-  { id: 'levrek', name: 'levrek', emoji: '🐟', category: 'et_tavuk', defaultUnit: 'adet', aliases: ['çupra'] },
+  { id: 'levrek', name: 'levrek', emoji: '🐟', category: 'et_tavuk', defaultUnit: 'adet' },
+  { id: 'cupra', name: 'çupra', emoji: '🐟', category: 'et_tavuk', defaultUnit: 'adet' },
   { id: 'karides', name: 'karides', emoji: '🍤', category: 'et_tavuk', defaultUnit: 'gram' },
   { id: 'kalamar', name: 'kalamar', emoji: '🦑', category: 'et_tavuk', defaultUnit: 'gram' },
-  { id: 'ton-baligi', name: 'ton balığı konservesi', emoji: '🥫', category: 'et_tavuk', defaultUnit: 'paket' },
+  { id: 'ton-baligi', name: 'ton balığı konservesi', emoji: '🥫', category: 'et_tavuk', defaultUnit: 'paket', aliases: ['ton balığı'] },
   { id: 'ciger', name: 'kuzu ciğeri', emoji: '🥩', category: 'et_tavuk', defaultUnit: 'gram', aliases: ['dana ciğeri', 'ciğer'] },
 
   // Süt & Kahvaltılık
@@ -113,7 +114,8 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'yogurt', name: 'yoğurt', emoji: '🥣', category: 'sut_kahvalti', defaultUnit: 'su bardağı' },
   { id: 'suzme-yogurt', name: 'süzme yoğurt', emoji: '🥣', category: 'sut_kahvalti', defaultUnit: 'su bardağı' },
   { id: 'beyaz-peynir', name: 'beyaz peynir', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
-  { id: 'kasar-peyniri', name: 'kaşar peyniri', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram', aliases: ['mozzarella'] },
+  { id: 'kasar-peyniri', name: 'kaşar peyniri', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
+  { id: 'mozzarella', name: 'mozzarella', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
   { id: 'lor-peyniri', name: 'lor peyniri', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
   { id: 'cokelek', name: 'çökelek', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
   { id: 'tulum-peyniri', name: 'tulum peyniri', emoji: '🧀', category: 'sut_kahvalti', defaultUnit: 'gram' },
@@ -127,8 +129,7 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
 
   // Bakliyat & Unlu
   { id: 'pirinc', name: 'pirinç', emoji: '🍚', category: 'bakliyat', defaultUnit: 'su bardağı' },
-  { id: 'pilavlik-bulgur', name: 'pilavlık bulgur', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı' },
-  { id: 'bulgur', name: 'bulgur', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı' },
+  { id: 'pilavlik-bulgur', name: 'pilavlık bulgur', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı', aliases: ['bulgur'] },
   { id: 'koftelik-bulgur', name: 'köftelik bulgur', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı', aliases: ['ince bulgur'] },
   { id: 'firik-bulguru', name: 'firik bulguru', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı' },
   { id: 'kirmizi-mercimek', name: 'kırmızı mercimek', emoji: '🟠', category: 'bakliyat', defaultUnit: 'su bardağı' },
@@ -146,7 +147,7 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'tel-kadayif', name: 'tel kadayıf', emoji: '🌾', category: 'bakliyat', defaultUnit: 'gram', aliases: ['kadayıf'] },
   { id: 'gullac-yapragi', name: 'güllaç yaprağı', emoji: '🫓', category: 'bakliyat', defaultUnit: 'adet' },
   { id: 'milfoy', name: 'milföy hamuru', emoji: '🥐', category: 'bakliyat', defaultUnit: 'paket' },
-  { id: 'lavas', name: 'lavaş ekmeği', emoji: '🫓', category: 'bakliyat', defaultUnit: 'adet', aliases: ['tortilla'] },
+  { id: 'lavas', name: 'lavaş ekmeği', emoji: '🫓', category: 'bakliyat', defaultUnit: 'adet', aliases: ['tortilla', 'lavaş'] },
   { id: 'pide-ekmegi', name: 'pide ekmeği', emoji: '🫓', category: 'bakliyat', defaultUnit: 'adet', aliases: ['tırnak pide'] },
   { id: 'bayat-ekmek', name: 'bayat ekmek içi', emoji: '🍞', category: 'bakliyat', defaultUnit: 'dilim', aliases: ['ekmek', 'tost ekmeği'] },
   { id: 'galeta-unu', name: 'galeta unu', emoji: '🥖', category: 'bakliyat', defaultUnit: 'yemek kaşığı' },
@@ -160,13 +161,13 @@ const BASE_INGREDIENTS_DATA: IngredientItem[] = [
   { id: 'vanilya', name: 'vanilya', emoji: '🌼', category: 'bakliyat', defaultUnit: 'paket' },
   { id: 'maya', name: 'maya', emoji: '🍞', category: 'bakliyat', defaultUnit: 'paket', aliases: ['instant maya', 'yaş maya'] },
   { id: 'kakao', name: 'kakao', emoji: '🍫', category: 'bakliyat', defaultUnit: 'yemek kaşığı' },
-  { id: 'petibor-biskuvi', name: 'petibör bisküvi', emoji: '🍪', category: 'bakliyat', defaultUnit: 'paket', aliases: ['kedi dili bisküvi'] },
+  { id: 'petibor-biskuvi', name: 'petibör bisküvi', emoji: '🍪', category: 'bakliyat', defaultUnit: 'paket' },
+  { id: 'kedi-dili', name: 'kedi dili bisküvi', emoji: '🍪', category: 'bakliyat', defaultUnit: 'paket' },
   { id: 'bugday', name: 'buğday', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı', aliases: ['aşurelik buğday', 'yarma'] },
   { id: 'yulaf-ezmesi', name: 'yulaf ezmesi', emoji: '🌾', category: 'bakliyat', defaultUnit: 'su bardağı' },
 
   // Baharat, Sos & Diğer
-  { id: 'limon', name: 'limon', emoji: '🍋', category: 'baharat_sos', defaultUnit: 'adet' },
-  { id: 'limon-suyu', name: 'limon suyu', emoji: '🍋', category: 'baharat_sos', defaultUnit: 'yemek kaşığı' },
+  { id: 'limon', name: 'limon', emoji: '🍋', category: 'baharat_sos', defaultUnit: 'adet', aliases: ['limon suyu'] },
   { id: 'nar-eksisi', name: 'nar ekşisi', emoji: '🍷', category: 'baharat_sos', defaultUnit: 'yemek kaşığı' },
   { id: 'koruk-eksisi', name: 'koruk ekşisi', emoji: '🍇', category: 'baharat_sos', defaultUnit: 'yemek kaşığı' },
   { id: 'sirke', name: 'sirke', emoji: '🍾', category: 'baharat_sos', defaultUnit: 'yemek kaşığı', aliases: ['üzüm sirkesi', 'elma sirkesi'] },
@@ -396,6 +397,23 @@ function buildCompleteIngredientsCatalog(): IngredientItem[] {
 
 export const INGREDIENTS_DATA: IngredientItem[] = buildCompleteIngredientsCatalog();
 
+const ALIAS_TO_CANONICAL_MAP = new Map<string, string>();
+INGREDIENTS_DATA.forEach((item) => {
+  const canonical = item.name.toLowerCase().trim();
+  ALIAS_TO_CANONICAL_MAP.set(canonical, canonical);
+  item.aliases?.forEach((alias) => {
+    ALIAS_TO_CANONICAL_MAP.set(alias.toLowerCase().trim(), canonical);
+  });
+});
+
+/**
+ * Herhangi bir malzeme adını (veya eş anlamlısını) Kilerim'deki birebir ana malzeme adına dönüştürür
+ */
+export function canonicalizeIngredientName(rawName: string): string {
+  const clean = rawName.toLowerCase().trim();
+  return ALIAS_TO_CANONICAL_MAP.get(clean) || clean;
+}
+
 // Hızlı kiler başlangıç paketleri (Ev hanımları tek tıkla kilerini doldurabilsin)
 export const QUICK_PANTRY_PRESETS = [
   {
@@ -432,7 +450,6 @@ export const QUICK_PANTRY_PRESETS = [
       'kekik',
       'kimyon',
       'limon',
-      'limon suyu',
       'sirke',
     ],
   },
@@ -467,7 +484,6 @@ export const QUICK_PANTRY_PRESETS = [
     items: [
       'pirinç',
       'pilavlık bulgur',
-      'bulgur',
       'köftelik bulgur',
       'kırmızı mercimek',
       'yeşil mercimek',

@@ -2,6 +2,7 @@ import type { Recipe, RecipeCategory, RecipeIngredient, RecipeStep } from '../ty
 import { COMPACT_TURKISH_ARCHIVE, WORLD_CUISINE_RAW } from './generatedArchive';
 import { REGIONAL_ANATOLIAN_CATALOG } from './regionalTurkishCatalog';
 import { ALL_RECIPES } from './recipes';
+import { canonicalizeIngredientName } from './ingredients';
 import { resolveDishVisualTheme } from '../components/DishVisualHeader';
 
 const CATEGORY_EMOJI: Record<Exclude<RecipeCategory, 'tumu'>, string> = {
@@ -545,6 +546,22 @@ export function buildAccurateTurkishSteps(
 
 let cachedFullArchive: Recipe[] | null = null;
 
+function normalizeAndDeduplicateIngredients(ings: RecipeIngredient[]): RecipeIngredient[] {
+  const seen = new Set<string>();
+  const result: RecipeIngredient[] = [];
+  for (let i = 0; i < ings.length; i++) {
+    const canonicalName = canonicalizeIngredientName(ings[i].name);
+    if (!seen.has(canonicalName)) {
+      seen.add(canonicalName);
+      result.push({
+        ...ings[i],
+        name: canonicalName,
+      });
+    }
+  }
+  return result;
+}
+
 export function getFullRecipeArchive(): Recipe[] {
   if (cachedFullArchive) return cachedFullArchive;
 
@@ -555,10 +572,12 @@ export function getFullRecipeArchive(): Recipe[] {
   // 1. Ana Detaylı Türk Mutfağı Tarifleri
   const taggedCoreRecipes: Recipe[] = ALL_RECIPES.map((r) => ({
     ...r,
-    ingredients: r.ingredients.map((ing) => ({
-      ...ing,
-      note: ing.note || inferIngredientPrepNote(ing.name, r.category),
-    })),
+    ingredients: normalizeAndDeduplicateIngredients(
+      r.ingredients.map((ing) => ({
+        ...ing,
+        note: ing.note || inferIngredientPrepNote(ing.name, r.category),
+      }))
+    ),
     cuisineOrigin: r.cuisineOrigin || 'turkish',
     countryLabel: r.countryLabel || '🇹🇷 Türk Mutfağı',
   }));
@@ -589,7 +608,9 @@ export function getFullRecipeArchive(): Recipe[] {
       baseServings: 4,
       chefTip: `${reg.title} yaparken ${visual.cookwareHint} kullanmanız ve "${visual.heatHint}" kuralına uymanız yemeğin tam kıvamında olmasını sağlar.`,
       servingSuggestion: `Yanında ${reg.region} usulü köpüklü ayran, mevsim salatası veya taze ekmek ile servis edebilirsiniz.`,
-      ingredients: reg.ings.map((ingName) => inferTurkishIngredientAmount(ingName, reg.cat)),
+      ingredients: normalizeAndDeduplicateIngredients(
+        reg.ings.map((ingName) => inferTurkishIngredientAmount(ingName, reg.cat))
+      ),
       steps: buildAccurateTurkishSteps(reg.title, reg.cat, reg.ings),
     });
   });
@@ -630,7 +651,9 @@ export function getFullRecipeArchive(): Recipe[] {
       baseServings: 4,
       chefTip: `${tr.title} yaparken malzemelerin oda sıcaklığında olmasına özen gösterin; ${visual.heatHint.toLowerCase()} yöntemiyle pişirmek lezzeti ikiye katlar.`,
       servingSuggestion: 'Yanında mevsim salata, süzme yoğurt veya sıcak pide ile servis edebilirsiniz.',
-      ingredients: tr.ings.map((ingName) => inferTurkishIngredientAmount(ingName, tr.cat)),
+      ingredients: normalizeAndDeduplicateIngredients(
+        tr.ings.map((ingName) => inferTurkishIngredientAmount(ingName, tr.cat))
+      ),
       steps: baseSteps,
     });
   });
@@ -655,12 +678,14 @@ export function getFullRecipeArchive(): Recipe[] {
       baseServings: 4,
       chefTip: w.tip,
       servingSuggestion: w.serve,
-      ingredients: w.ings.map(([name, amount, unit]) => ({
-        name: String(name),
-        amount: Number(amount),
-        unit: unit as RecipeIngredient['unit'],
-        note: inferIngredientPrepNote(String(name), cat),
-      })),
+      ingredients: normalizeAndDeduplicateIngredients(
+        w.ings.map(([name, amount, unit]) => ({
+          name: String(name),
+          amount: Number(amount),
+          unit: unit as RecipeIngredient['unit'],
+          note: inferIngredientPrepNote(String(name), cat),
+        }))
+      ),
       steps: w.steps.map((inst, sIdx) => ({
         title: `${sIdx + 1}. Aşama`,
         instruction: inst,
