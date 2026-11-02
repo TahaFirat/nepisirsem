@@ -28,7 +28,8 @@ export function getOriginalDishPhotoUrl(
   category?: Exclude<RecipeCategory, 'tumu'>
 ): string {
   const baseName = title
-    .replace(/\(([^)]+)\)/g, ' $1 ')
+    .replace(/\(([^)]+)\)/g, ' ')
+    .replace(/[&/•–—-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -39,8 +40,30 @@ export function getOriginalDishPhotoUrl(
       ? 'çorbası kase'
       : 'yemeği tabak';
 
-  const query = `${baseName} ${suffix}`;
+  const query = `${baseName || title} ${suffix}`;
   return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query)}&w=640&h=420&c=7&rs=1&p=0`;
+}
+
+export function getFallbackDishPhotoUrl(
+  title: string,
+  category?: Exclude<RecipeCategory, 'tumu'>
+): string {
+  const coreWords = title
+    .replace(/\(([^)]+)\)/g, ' ')
+    .replace(/[&/•–—-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(' ');
+
+  const catWord =
+    category === 'tatli'
+      ? 'tatlı tarifi'
+      : category === 'corba'
+      ? 'çorba tarifi'
+      : 'yemek tarifi';
+
+  return `https://tse3.mm.bing.net/th?q=${encodeURIComponent(`${coreWords || title} ${catWord}`)}&w=640&h=420&c=7&rs=1&p=0`;
 }
 
 /**
@@ -186,13 +209,16 @@ export function resolveDishVisualTheme(
 
 export const DishVisualHeader: React.FC<DishVisualHeaderProps> = React.memo(
   ({ title, category, emoji, height = 172, className = '', children }) => {
-    const [imgError, setImgError] = useState(false);
+    const [retryStage, setRetryStage] = useState<0 | 1 | 2>(0);
     const theme = resolveDishVisualTheme(title, category);
     const displayEmoji = resolveDishSpecificEmoji(title, category, emoji || theme.iconEmoji);
-    const photoUrl = getOriginalDishPhotoUrl(title, category);
+    const photoUrl =
+      retryStage === 0
+        ? getOriginalDishPhotoUrl(title, category)
+        : getFallbackDishPhotoUrl(title, category);
 
     useEffect(() => {
-      setImgError(false);
+      setRetryStage(0);
     }, [title, category]);
 
     return (
@@ -203,7 +229,7 @@ export const DishVisualHeader: React.FC<DishVisualHeaderProps> = React.memo(
           background: theme.gradient,
         }}
       >
-        {!imgError ? (
+        {retryStage < 2 ? (
           <>
             <img
               src={photoUrl}
@@ -211,7 +237,9 @@ export const DishVisualHeader: React.FC<DishVisualHeaderProps> = React.memo(
               className="dish-visual-img"
               loading="lazy"
               referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
+              onError={() =>
+                setRetryStage((prev) => (prev === 0 ? 1 : 2))
+              }
             />
             <div className="dish-visual-gradient-overlay" />
           </>
