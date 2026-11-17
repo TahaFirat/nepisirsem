@@ -3,18 +3,22 @@ import WebKit
 import Capacitor
 import UserNotifications
 import AudioToolbox
+import AVFoundation
 
-class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler {
+class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler, AVSpeechSynthesizerDelegate {
 
     private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
     private let mediumHaptic = UIImpactFeedbackGenerator(style: .medium)
     private let notificationHaptic = UINotificationFeedbackGenerator()
+    private let speechSynthesizer = AVSpeechSynthesizer()
+    private var activeSpeechSessionToken: Int = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
         lightHaptic.prepare()
         mediumHaptic.prepare()
         notificationHaptic.prepare()
+        speechSynthesizer.delegate = self
 
         if let wkWebView = self.webView {
             wkWebView.configuration.userContentController.add(self, name: "nepisirsemNative")
@@ -66,8 +70,84 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler 
                 AudioServicesPlaySystemSound(1005)
             }
 
+        case "speakText":
+            let text = (body["text"] as? String) ?? ""
+            let rate = (body["rate"] as? Double) ?? 1.0
+            let voiceName = body["voiceName"] as? String
+            let token = (body["token"] as? Int) ?? 0
+            DispatchQueue.main.async {
+                self.speakTextNative(text: text, rateMultiplier: rate, voiceName: voiceName, token: token)
+            }
+
+        case "stopSpeak":
+            DispatchQueue.main.async {
+                self.activeSpeechSessionToken += 1
+                self.speechSynthesizer.stopSpeaking(at: .immediate)
+            }
+
+        case "listTurkishVoices":
+            DispatchQueue.main.async {
+                let trVoices = AVSpeechSynthesisVoice.speechVoices()
+                    .filter { $0.language.lowercased().hasPrefix("tr") }
+                    .map { $0.name }
+                let uniqueNames = Array(Set(trVoices)).sorted()
+                if let jsonData = try? JSONSerialization.data(withJSONObject: uniqueNames, options: []),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    self.webView?.evaluateJavaScript("window.__nepisirsemOnNativeVoices?.(\(jsonString));", completionHandler: nil)
+                }
+            }
+
         default:
             break
+        }
+    }
+
+    private func speakTextNative(text: String, rateMultiplier: Double, voiceName: String?, token: Int) {
+        activeSpeechSessionToken = token
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            // Audio session best-effort
+        }
+
+        let utterance = AVSpeechUtterance(string: text)
+        let trVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.lowercased().hasPrefix("tr") }
+        if let preferredName = voiceName, !preferredName.isEmpty,
+           let matched = trVoices.first(where: { $0.name == preferredName }) {
+            utterance.voice = matched
+        } else if let yelda = trVoices.first(where: { $0.name.lowercased().contains("yelda") }) {
+            utterance.voice = yelda
+        } else if let firstTr = trVoices.first {
+            utterance.voice = firstTr
+        } else {
+            utterance.voice = AVSpeechSynthesisVoice(language: "tr-TR")
+        }
+
+        let scaledRate = AVSpeechUtteranceDefaultSpeechRate * Float(rateMultiplier)
+        utterance.rate = min(max(scaledRate, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
+        speechSynthesizer.speak(utterance)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
+        let token = activeSpeechSessionToken
+        DispatchQueue.main.async {
+            self.webView?.evaluateJavaScript(
+                "window.__nepisirsemOnSpeechBoundary?.(\(token), \(characterRange.location), \(characterRange.length));",
+                completionHandler: nil
+            )
+        }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        let token = activeSpeechSessionToken
+        DispatchQueue.main.async {
+            self.webView?.evaluateJavaScript("window.__nepisirsemOnSpeechEnd?.(\(token));", completionHandler: nil)
         }
     }
 

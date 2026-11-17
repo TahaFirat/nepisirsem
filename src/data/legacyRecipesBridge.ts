@@ -578,43 +578,164 @@ function normalizeAndDeduplicateIngredients(
   return result;
 }
 
+function normalizeTurkishKey(text: string): string {
+  return text
+    .toLocaleLowerCase('tr-TR')
+    .replace(/\u0307/g, '')
+    .replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/[^a-zçğıöşü0-9]+/g, ' ')
+    .trim();
+}
+
+const CITY_INFERENCE_RULES: Array<{ label: string; keywords: string[] }> = [
+  {
+    label: '🇹🇷 Kayseri',
+    keywords: ['kayseri', 'yağlama', 'mantı', 'nevzine', 'pöç', 'kurşun aşı', 'pastırmalı', 'develi cıvıklı', 'pehli'],
+  },
+  {
+    label: '🇹🇷 Gaziantep',
+    keywords: ['gaziantep', 'antep', 'beyran', 'yuvalama', 'şiveydiz', 'küşleme', 'firik pilavı', 'ali nazik', 'patlıcan kebabı', 'soğan kebabı', 'sarımsak kebabı', 'baklava', 'şöbiyet', 'lahmacun'],
+  },
+  {
+    label: '🇹🇷 Hatay',
+    keywords: ['hatay', 'antakya', 'belen tava', 'şıhıl mahşi', 'mütebbel', 'künefe', 'muhammara', 'babagannuş', 'kaytaz', 'kerebiç', 'tepsi kebabı', 'kağıt kebabı'],
+  },
+  {
+    label: '🇹🇷 Adana',
+    keywords: ['adana', 'şırdan', 'fellah köftesi', 'yüksük çorbası', 'mahluta', 'sıkma'],
+  },
+  {
+    label: '🇹🇷 Şanlıurfa',
+    keywords: ['şanlıurfa', 'urfa', 'çiğ köfte', 'ağzı açık', 'semsek', 'şıllık'],
+  },
+  {
+    label: '🇹🇷 Konya',
+    keywords: ['konya', 'etli ekmek', 'bıçak arası', 'bamya çorbası', 'sac arası', 'çebiç'],
+  },
+  {
+    label: '🇹🇷 Bursa',
+    keywords: ['bursa', 'iskender', 'inegöl köfte', 'pideli köfte', 'cantık', 'kemalpaşa', 'süt helvası'],
+  },
+  {
+    label: '🇹🇷 Trabzon',
+    keywords: ['trabzon', 'rize', 'karadeniz', 'hamsiköy', 'akçaabat', 'kuymak', 'mıhlama', 'laz böreği', 'pepeçura', 'hamsili pilav', 'hamsi', 'kara lahana'],
+  },
+  {
+    label: '🇹🇷 İzmir',
+    keywords: ['izmir', 'ege', 'boyoz', 'şevketi bostan', 'şambali', 'sam tatlısı', 'çökertme', 'kumru', 'fava'],
+  },
+  {
+    label: '🇹🇷 Erzurum',
+    keywords: ['erzurum', 'cağ kebabı', 'kadayıf dolması', 'murtuğa', 'kavut', 'keledoş', 'hıngel', 'hengel'],
+  },
+  {
+    label: '🇹🇷 Ankara',
+    keywords: ['ankara', 'beypazarı', 'öllüğün'],
+  },
+  {
+    label: '🇹🇷 Sivas',
+    keywords: ['sivas', 'madımak', 'peskütan'],
+  },
+  {
+    label: '🇹🇷 Mardin',
+    keywords: ['mardin', 'sembusek', 'ikbebet', 'kaburga dolması', 'harire'],
+  },
+  {
+    label: '🇹🇷 Diyarbakır',
+    keywords: ['diyarbakır', 'meftune', 'nardanaşı'],
+  },
+  {
+    label: '🇹🇷 Kahramanmaraş',
+    keywords: ['kahramanmaraş', 'maraş', 'eli böğründe'],
+  },
+  {
+    label: '🇹🇷 Elazığ',
+    keywords: ['elazığ', 'harput', 'palu tava', 'lobik', 'kofik', 'dolanger'],
+  },
+];
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function inferTurkishCityLabel(title: string, currentLabel?: string): string {
+  if (currentLabel && currentLabel !== '🇹🇷 Türk Mutfağı' && !currentLabel.startsWith('🌍')) {
+    return currentLabel;
+  }
+  const normalizedTitle = normalizeTurkishKey(title);
+  for (const rule of CITY_INFERENCE_RULES) {
+    for (const kw of rule.keywords) {
+      const re = new RegExp(`(^|\\s)${escapeRegex(kw)}(\\s|$|sı|si|su|sü|lı|li|lu|lü|ı|i|u|ü)`, 'i');
+      if (re.test(normalizedTitle)) {
+        return rule.label;
+      }
+    }
+  }
+  return currentLabel || '🇹🇷 Türk Mutfağı';
+}
+
+function detectCuisineOrigin(region: string, cat: Exclude<RecipeCategory, 'tumu'>): 'turkish' | 'world' {
+  if (cat === 'dunya_mutfagi') return 'world';
+  const r = normalizeTurkishKey(region);
+  if (
+    r.includes('italyan') ||
+    r.includes('meksika') ||
+    r.includes('amerikan') ||
+    r.includes('fransız') ||
+    r.includes('ispanyol') ||
+    r.includes('japon') ||
+    r.includes('tayland') ||
+    r.includes('dünya') ||
+    r.includes('asya') ||
+    r.includes('kore') ||
+    r.includes('hint') ||
+    r.includes('orta doğu')
+  ) {
+    return 'world';
+  }
+  return 'turkish';
+}
+
 export function getFullRecipeArchive(): Recipe[] {
   if (cachedFullArchive) return cachedFullArchive;
 
-  const existingTitles = new Set(
-    ALL_RECIPES.map((r) => r.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim())
-  );
+  const existingTitles = new Set<string>();
 
   // 1. Ana Detaylı Türk Mutfağı Tarifleri
-  const taggedCoreRecipes: Recipe[] = ALL_RECIPES.map((r) => ({
-    ...r,
-    ingredients: normalizeAndDeduplicateIngredients(
-      r.ingredients.map((ing) => ({
-        ...ing,
-        note: ing.note || inferIngredientPrepNote(ing.name, r.category),
-      }))
-    ),
-    cuisineOrigin: r.cuisineOrigin || 'turkish',
-    countryLabel: r.countryLabel || '🇹🇷 Türk Mutfağı',
-  }));
+  const taggedCoreRecipes: Recipe[] = ALL_RECIPES.map((r) => {
+    existingTitles.add(normalizeTurkishKey(r.title));
+    return {
+      ...r,
+      ingredients: normalizeAndDeduplicateIngredients(
+        r.ingredients.map((ing) => ({
+          ...ing,
+          note: ing.note || inferIngredientPrepNote(ing.name, r.category),
+        })),
+        r.category
+      ),
+      cuisineOrigin: r.cuisineOrigin || 'turkish',
+      countryLabel: inferTurkishCityLabel(r.title, r.countryLabel),
+    };
+  });
 
   // 2. 81 İlden Tescilli Anadolu Yöresel Yemekleri + Nefis Ev Klasikleri
   const regionalRecipes: Recipe[] = [];
   REGIONAL_ANATOLIAN_CATALOG.forEach((reg, idx) => {
-    const cleanTitle = reg.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+    const cleanTitle = normalizeTurkishKey(reg.title);
     if (existingTitles.has(cleanTitle)) return;
     existingTitles.add(cleanTitle);
 
     const visual = resolveDishVisualTheme(reg.title, reg.cat);
     const emoji = visual.iconEmoji || CATEGORY_EMOJI[reg.cat] || '🍲';
+    const origin = detectCuisineOrigin(reg.region, reg.cat);
 
     regionalRecipes.push({
       id: `yoresel-${idx + 1}`,
       title: reg.title,
       subtitle: `${reg.region} Mutfağından Tam Ölçülü & Adım Adım Açıklamalı Tarif`,
       category: reg.cat,
-      cuisineOrigin: 'turkish',
-      countryLabel: `🇹🇷 ${reg.region}`,
+      cuisineOrigin: origin,
+      countryLabel: origin === 'world' ? `🌍 ${reg.region}` : `🇹🇷 ${reg.region}`,
       emoji,
       image: '',
       prepTime: 20,
@@ -625,16 +746,59 @@ export function getFullRecipeArchive(): Recipe[] {
       chefTip: `${reg.title} yaparken ${visual.cookwareHint} kullanmanız ve "${visual.heatHint}" kuralına uymanız yemeğin tam kıvamında olmasını sağlar.`,
       servingSuggestion: `Yanında ${reg.region} usulü köpüklü ayran, mevsim salatası veya taze ekmek ile servis edebilirsiniz.`,
       ingredients: normalizeAndDeduplicateIngredients(
-        reg.ings.map((ingName) => inferTurkishIngredientAmount(ingName, reg.cat))
+        reg.ings.map((ingName) => inferTurkishIngredientAmount(ingName, reg.cat)),
+        reg.cat
       ),
       steps: buildAccurateTurkishSteps(reg.title, reg.cat, reg.ings),
     });
   });
 
-  // 3. V10'daki 350 Geleneksel Türk Mutfağı Tarifini 5 Aşamalı Detaylı Rehberle Dönüştür
+  // 3. Dünya Mutfağı Tariflerini Dönüştür
+  const worldRecipes: Recipe[] = [];
+  WORLD_CUISINE_RAW.forEach((w, idx) => {
+    const cleanTitle = normalizeTurkishKey(w.title);
+    if (existingTitles.has(cleanTitle)) return;
+    existingTitles.add(cleanTitle);
+
+    const cat = w.cat as Exclude<RecipeCategory, 'tumu'>;
+    const visual = resolveDishVisualTheme(w.title, cat);
+    worldRecipes.push({
+      id: `world-${idx + 1}`,
+      title: w.title,
+      subtitle: `${w.country} Mutfağından Evde Kolayca Yapabileceğiniz Tam Ölçülü Tarif`,
+      category: cat,
+      cuisineOrigin: 'world',
+      countryLabel: w.country,
+      emoji: visual.iconEmoji || '🌍',
+      image: '',
+      prepTime: w.prep,
+      cookTime: w.cook,
+      difficulty: 'Kolay',
+      caloriesPerServing: w.cal,
+      baseServings: 4,
+      chefTip: w.tip,
+      servingSuggestion: w.serve,
+      ingredients: normalizeAndDeduplicateIngredients(
+        w.ings.map(([name, amount, unit]) => ({
+          name: String(name),
+          amount: Number(amount),
+          unit: unit as RecipeIngredient['unit'],
+          note: inferIngredientPrepNote(String(name), cat),
+        })),
+        cat
+      ),
+      steps: w.steps.map((inst, sIdx) => ({
+        title: `${sIdx + 1}. Aşama`,
+        instruction: inst,
+        timerMinutes: sIdx === 1 ? Math.max(5, Math.round(w.cook * 0.6)) : undefined,
+      })),
+    });
+  });
+
+  // 4. V10'daki Geleneksel Türk Mutfağı Tariflerini 5 Aşamalı Detaylı Rehberle Dönüştür
   const convertedTurkish: Recipe[] = [];
   COMPACT_TURKISH_ARCHIVE.forEach((tr) => {
-    const cleanTitle = tr.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+    const cleanTitle = normalizeTurkishKey(tr.title);
     if (existingTitles.has(cleanTitle)) return;
     existingTitles.add(cleanTitle);
 
@@ -657,7 +821,7 @@ export function getFullRecipeArchive(): Recipe[] {
       subtitle: `${visual.patternLabel} • ${visual.cookwareHint}`,
       category: tr.cat,
       cuisineOrigin: 'turkish',
-      countryLabel: '🇹🇷 Türk Mutfağı',
+      countryLabel: inferTurkishCityLabel(tr.title, '🇹🇷 Türk Mutfağı'),
       emoji,
       image: '',
       prepTime: 15,
@@ -668,46 +832,11 @@ export function getFullRecipeArchive(): Recipe[] {
       chefTip: `${tr.title} yaparken malzemelerin oda sıcaklığında olmasına özen gösterin; ${visual.heatHint.toLowerCase()} yöntemiyle pişirmek lezzeti ikiye katlar.`,
       servingSuggestion: 'Yanında mevsim salata, süzme yoğurt veya sıcak pide ile servis edebilirsiniz.',
       ingredients: normalizeAndDeduplicateIngredients(
-        tr.ings.map((ingName) => inferTurkishIngredientAmount(ingName, tr.cat))
+        tr.ings.map((ingName) => inferTurkishIngredientAmount(ingName, tr.cat)),
+        tr.cat
       ),
       steps: baseSteps,
     });
-  });
-
-  // 4. Dünya Mutfağı Tariflerini Dönüştür
-  const worldRecipes: Recipe[] = WORLD_CUISINE_RAW.map((w, idx) => {
-    const cat = w.cat as Exclude<RecipeCategory, 'tumu'>;
-    const visual = resolveDishVisualTheme(w.title, cat);
-    return {
-      id: `world-${idx + 1}`,
-      title: w.title,
-      subtitle: `${w.country} Mutfağından Evde Kolayca Yapabileceğiniz Tam Ölçülü Tarif`,
-      category: cat,
-      cuisineOrigin: 'world',
-      countryLabel: w.country,
-      emoji: visual.iconEmoji || '🌍',
-      image: '',
-      prepTime: w.prep,
-      cookTime: w.cook,
-      difficulty: 'Kolay',
-      caloriesPerServing: w.cal,
-      baseServings: 4,
-      chefTip: w.tip,
-      servingSuggestion: w.serve,
-      ingredients: normalizeAndDeduplicateIngredients(
-        w.ings.map(([name, amount, unit]) => ({
-          name: String(name),
-          amount: Number(amount),
-          unit: unit as RecipeIngredient['unit'],
-          note: inferIngredientPrepNote(String(name), cat),
-        }))
-      ),
-      steps: w.steps.map((inst, sIdx) => ({
-        title: `${sIdx + 1}. Aşama`,
-        instruction: inst,
-        timerMinutes: sIdx === 1 ? Math.max(5, Math.round(w.cook * 0.6)) : undefined,
-      })),
-    };
   });
 
   cachedFullArchive = [

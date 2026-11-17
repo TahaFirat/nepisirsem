@@ -54,10 +54,15 @@ interface ShoppingItem {
 }
 
 type ActiveTab = 'kiler' | 'tarifler' | 'menu' | 'favoriler' | 'alisveris';
+type MenuStyle = 'dengeli' | 'pratik' | 'hafif' | 'ziyafet';
 
 const PANTRY_STORAGE_KEY = 'nepisirsem_pantry_v5_strict';
 
 const DEFAULT_PANTRY = ['su', 'tuz', 'sıvı yağ'];
+
+function normalizeTurkishText(text: string): string {
+  return text.toLocaleLowerCase('tr-TR').replace(/\u0307/g, '').trim();
+}
 
 // Birebir İl Filtreleri (Gaziantep seçilince SADECE Gaziantep çıkar)
 const CITY_FILTERS = [
@@ -293,6 +298,7 @@ export function App() {
   const [customShoppingInput, setCustomShoppingInput] = useState<string>('');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [menuSeed, setMenuSeed] = useState<number>(0);
+  const [menuStyle, setMenuStyle] = useState<MenuStyle>('dengeli');
   const [shoppingCopiedToast, setShoppingCopiedToast] = useState<boolean>(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
   const [isAddRecipeModalOpen, setIsAddRecipeModalOpen] = useState<boolean>(false);
@@ -540,28 +546,38 @@ export function App() {
     [matchedRecipes]
   );
 
-  // Birebir İl Eşleştirici (Gaziantep seçildiğinde SADECE Gaziantep gelir)
+  // Birebir İl Eşleştirici (Türkçe karakter uyumlu + kesin kelime eşleşmesi)
   const matchesStrictCity = (
     countryLabel: string | undefined,
     title: string,
     cityId: string
   ): boolean => {
     if (cityId === 'tumu') return true;
-    const label = (countryLabel || '').toLowerCase();
-    const t = title.toLowerCase();
+    const label = normalizeTurkishText(countryLabel || '');
+    const t = normalizeTurkishText(title);
+
+    const hasCityKeyword = (kwList: string[]) =>
+      kwList.some((kw) => {
+        if (label.includes(kw)) return true;
+        const re = new RegExp(`(^|[\\s(/])${kw}(?=$|[\\s)/,]|sı|si|su|sü|lı|li|lu|lü|ı|i)`, 'i');
+        return re.test(t);
+      });
 
     if (cityId === 'Trabzon') {
-      return label.includes('trabzon') || label.includes('rize') || label.includes('karadeniz');
+      return hasCityKeyword(['trabzon', 'rize', 'karadeniz', 'hamsiköy', 'akçaabat', 'ordu', 'giresun', 'artvin']);
     }
     if (cityId === 'İzmir') {
-      return label.includes('izmir') || label.includes('aydın') || label.includes('muğla');
+      return hasCityKeyword(['izmir', 'aydın', 'muğla', 'bodrum', 'ege', 'tire', 'manisa']);
     }
     if (cityId === 'Erzurum') {
-      return label.includes('erzurum') || label.includes('van') || label.includes('kars');
+      return hasCityKeyword(['erzurum', 'van', 'kars', 'ağrı']);
+    }
+    if (cityId === 'Adana') {
+      return hasCityKeyword(['adana', 'mersin', 'çukurova']);
     }
 
-    const target = cityId.toLowerCase();
-    return label.includes(target) || t.includes(`(${target}`);
+    const target = normalizeTurkishText(cityId);
+    return hasCityKeyword([target]);
   };
 
   // Filtrelenmiş tarifler
@@ -585,16 +601,18 @@ export function App() {
         return false;
       }
       if (recipeSearch.trim()) {
-        const q = recipeSearch.toLowerCase().trim();
-        const inTitle = m.recipe.title.toLowerCase().includes(q);
-        const inCountry = (m.recipe.countryLabel || '').toLowerCase().includes(q);
+        const q = normalizeTurkishText(recipeSearch);
+        const inTitle = normalizeTurkishText(m.recipe.title).includes(q);
+        const inCountry = normalizeTurkishText(m.recipe.countryLabel || '').includes(q);
 
         const isCityQuery = CITY_KEYWORDS.some((ck) => q === ck || q.includes(ck));
         if (isCityQuery) {
           return inTitle || inCountry;
         }
 
-        const inIng = m.recipe.ingredients.some((i) => i.name.toLowerCase().includes(q));
+        const inIng = m.recipe.ingredients.some((i) =>
+          normalizeTurkishText(i.name).includes(q)
+        );
         return inTitle || inCountry || inIng;
       }
       return true;
@@ -608,25 +626,140 @@ export function App() {
     recipeSearch,
   ]);
 
-  // Günün 4 Çeşit Menüsü
+  // Günün Akıllı & Uyumlu 4 Çeşit Menüsü
   const dailyMenu = useMemo(() => {
-    const pickFrom = (cats: RecipeCategory[]) => {
-      const candidates = matchedRecipes
-        .filter((m) => cats.includes(m.recipe.category))
-        .slice(0, 10);
-      if (candidates.length === 0) return null;
-      return candidates[menuSeed % candidates.length];
+    const isRealSoup = (m: MatchedRecipe) => {
+      if (m.recipe.category !== 'corba') return false;
+      const t = normalizeTurkishText(m.recipe.title);
+      return !/(pide|ekmek|kaşık dökmesi)/.test(t);
     };
+
+    const isRealMain = (m: MatchedRecipe) => {
+      const cat = m.recipe.category;
+      if (menuStyle === 'hafif') {
+        if (cat !== 'sebze_zeytinyagli' && cat !== 'dunya_mutfagi') return false;
+      } else {
+        if (cat !== 'et_tavuk' && cat !== 'sebze_zeytinyagli' && cat !== 'dunya_mutfagi') {
+          return false;
+        }
+      }
+      if (menuStyle === 'pratik' && m.recipe.prepTime + m.recipe.cookTime > 40) {
+        return false;
+      }
+      const t = normalizeTurkishText(m.recipe.title);
+      if (/(reçel|marmelat|şerbet|hoşaf|komposto|turşu|ekmek|simit|açma|poğaça|börek|boza|suyu)/.test(t)) {
+        return false;
+      }
+      if (menuStyle === 'ziyafet') {
+        return (
+          cat === 'et_tavuk' ||
+          /(kebap|hünkar|güveç|tandırı|tandır|sultan|dolma|sarma|lazanya|pirzola|köfte|fırın)/.test(t)
+        );
+      }
+      return true;
+    };
+
+    const isRealDessert = (m: MatchedRecipe) => {
+      if (m.recipe.category !== 'tatli') return false;
+      const t = normalizeTurkishText(m.recipe.title);
+      // Asla akşam yemeği tatlısı olarak reçel, marmelat, turşu, şerbet, hoşaf, keşkek, tuzlu hamur işi önerme!
+      if (/(reçel|marmelat|şerbet|hoşaf|komposto|turşu|keşkek|tuzlu|sucuk|pestil|boza|suyu|salep)/.test(t)) {
+        return false;
+      }
+      if (menuStyle === 'hafif') {
+        return /(sütlaç|muhallebi|keşkül|kazandibi|güllaç|incir uyutması|magnolia|panna cotta|ayva|kabak|elma|puding|supangle)/.test(t);
+      }
+      return true;
+    };
+
+    const getDishFamilyKey = (title: string): string => {
+      const t = normalizeTurkishText(title).replace(/\([^)]*\)/g, '');
+      if (t.includes('un helva') || t.includes('haside') || t.includes('aside')) return 'un-helvasi';
+      if (t.includes('irmik helva')) return 'irmik-helvasi';
+      if (t.includes('sütlaç')) return 'sutlac';
+      if (t.includes('revani')) return 'revani';
+      if (t.includes('baklava')) return 'baklava';
+      if (t.includes('mercimek çorba')) return 'mercimek-corbasi';
+      if (t.includes('tarhana')) return 'tarhana-corbasi';
+      if (t.includes('yayla çorba')) return 'yayla-corbasi';
+      if (t.includes('pirinç pilav')) return 'pirinc-pilavi';
+      if (t.includes('bulgur pilav')) return 'bulgur-pilavi';
+      if (t.includes('cacık')) return 'cacik';
+      return t.split(/\s+/).slice(-2).join('-');
+    };
+
+    const buildPool = (predicate: (m: MatchedRecipe) => boolean, fallbackCat?: RecipeCategory) => {
+      let matches = matchedRecipes.filter(predicate);
+      if (matches.length === 0 && fallbackCat) {
+        matches = matchedRecipes.filter((m) => m.recipe.category === fallbackCat);
+      }
+      // Aynı yemek ailesinden art arda 5 çeşit gelmesini önle (ör. hep Un Helvası yerine her tıkta bambaşka tatlılar)
+      const distinctFamily: MatchedRecipe[] = [];
+      const seenFamilies = new Set<string>();
+      for (const m of matches) {
+        const fam = getDishFamilyKey(m.recipe.title);
+        if (!seenFamilies.has(fam)) {
+          seenFamilies.add(fam);
+          distinctFamily.push(m);
+        }
+        if (distinctFamily.length >= 24) break;
+      }
+      return distinctFamily.length > 0 ? distinctFamily : matches.slice(0, 12);
+    };
+
+    const pickFromPool = (pool: MatchedRecipe[], stepOffset: number, multiplier: number) => {
+      if (pool.length === 0) return null;
+      const idx = (menuSeed * multiplier + stepOffset) % pool.length;
+      return pool[idx];
+    };
+
+    const soupPool = buildPool(isRealSoup, 'corba');
+    const soup = pickFromPool(soupPool, 0, 1);
+
+    const mainPool = buildPool(isRealMain, 'et_tavuk');
+    const main = pickFromPool(mainPool, 1, 3);
+
+    const mainTitle = normalizeTurkishText(main?.recipe.title || '');
+    const mainAlreadyHasGrain = /(pilav|makarna|erişte|spagetti|penne|lazanya|risotto|paella|mantı|börek|pide|lahmacun|kuskus)/.test(
+      mainTitle
+    );
+
+    const isHarmoniousSide = (m: MatchedRecipe) => {
+      const cat = m.recipe.category;
+      if (cat !== 'bakliyat_pilav' && cat !== 'salata_meze' && cat !== 'hamur_borek') {
+        return false;
+      }
+      const t = normalizeTurkishText(m.recipe.title);
+      // Turşu, salamura, ana yemek tarzı kuru fasulye/nohut yemeği yardımcı slotuna girmesin
+      if (/(turşu|şalgam|koruk|reçel|marmelat|pide|lahmacun|simit|açma|poğaça|etli|kuru fasulye|nohut yemeği|barbunya|mercimek yemeği|keşkek)/.test(t)) {
+        return false;
+      }
+      if (cat === 'hamur_borek' && !/(börek|gözleme|su böreği)/.test(t)) {
+        return false;
+      }
+      if (mainAlreadyHasGrain || menuStyle === 'hafif') {
+        // Ana yemekte zaten pilav/makarna/hamur varsa yanına mutlaka ferah salata/meze/cacık seç
+        return cat === 'salata_meze';
+      }
+      if (menuStyle === 'ziyafet') {
+        return /(pilav|iç pilav|firik|meze|gavurdağı|cacık|haydari|humus|börek)/.test(t);
+      }
+      return true;
+    };
+
+    const sidePool = buildPool(isHarmoniousSide, 'salata_meze');
+    const side = pickFromPool(sidePool, 2, 5);
+
+    const dessertPool = buildPool(isRealDessert, 'tatli');
+    const dessert = pickFromPool(dessertPool, 3, 7);
+
     return [
-      { role: '🥣 Başlangıç Çorbası', item: pickFrom(['corba']) },
-      {
-        role: '🍖 Ana Yemek',
-        item: pickFrom(['et_tavuk', 'sebze_zeytinyagli', 'dunya_mutfagi']),
-      },
-      { role: '🍚 Yardımcı Lezzet', item: pickFrom(['bakliyat_pilav', 'salata_meze']) },
-      { role: '🍮 Tatlı', item: pickFrom(['tatli']) },
+      { role: '🥣 Başlangıç Çorbası', item: soup },
+      { role: '🍖 Ana Yemek', item: main },
+      { role: '🍚 Yardımcı Lezzet', item: side },
+      { role: '🍮 Akşam Tatlısı', item: dessert },
     ].filter((entry) => entry.item !== null);
-  }, [matchedRecipes, menuSeed]);
+  }, [matchedRecipes, menuSeed, menuStyle]);
 
   const switchTab = useCallback((tab: ActiveTab) => {
     setActiveTab(tab);
@@ -904,6 +1037,27 @@ export function App() {
                 >
                   <Dices size={16} /> Menüyü Değiştir
                 </button>
+              </div>
+
+              <div className="category-pills-row menu-style-pills" style={{ marginBottom: '14px' }}>
+                {[
+                  { id: 'dengeli' as MenuStyle, label: '🍽️ Dengeli Ev Menüsü' },
+                  { id: 'pratik' as MenuStyle, label: '⚡ Pratik (30-40 dk)' },
+                  { id: 'hafif' as MenuStyle, label: '🥗 Hafif & Zeytinyağlı' },
+                  { id: 'ziyafet' as MenuStyle, label: '👑 Misafir Sofrası' },
+                ].map((st) => (
+                  <button
+                    type="button"
+                    key={st.id}
+                    className={`cat-pill ${menuStyle === st.id ? 'active' : ''}`}
+                    onClick={() => {
+                      triggerNativeHaptic('light');
+                      setMenuStyle(st.id);
+                    }}
+                  >
+                    <span>{st.label}</span>
+                  </button>
+                ))}
               </div>
 
               <div className="daily-menu-grid">
@@ -1342,7 +1496,9 @@ export function App() {
                   çevrimdışı / offline) çalıştırır. Seçtiğiniz kiler malzemeleri, favori
                   tarifleriniz ve alışveriş listeniz yalnızca cihazınızın yerel hafızasında
                   saklanır; hiçbir kişisel veriniz toplanmaz, takip edilmez ve dış sunuculara
-                  aktarılmaz.
+                  aktarılmaz. Sesli okuma asistanı modülünde MIT Lisanslı{' '}
+                  <code>ErenBekman/speech-text-voice</code> açık kaynak mimarisinden
+                  yararlanılmıştır.
                 </p>
               </div>
             </div>

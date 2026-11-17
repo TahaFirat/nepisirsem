@@ -16,7 +16,7 @@ export const REGIONAL_ANATOLIAN_CATALOG: RegionalTurkishDish[] = [
   { title: 'Yuvalama Çorbası (Gaziantep)', region: 'Gaziantep', cat: 'corba', ings: ['pirinç unu', 'kıyma', 'nohut', 'kuşbaşı et', 'süzme yoğurt', 'yumurta', 'tereyağı', 'nane', 'tuz', 'karabiber', 'su'] },
   { title: 'Beyran Çorbası (Gaziantep)', region: 'Gaziantep', cat: 'corba', ings: ['kuzu gerdan', 'pirinç', 'sarımsak', 'biber salçası', 'pul biber', 'karabiber', 'tereyağı', 'limon', 'tuz', 'et suyu'] },
   { title: 'Alaca Çorbası (Gaziantep)', region: 'Gaziantep', cat: 'corba', ings: ['buğday', 'nohut', 'soğan', 'tarhun otu', 'tereyağı', 'pul biber', 'tuz', 'su'] },
-  { title: 'lebeniye Çorbası (Gaziantep)', region: 'Gaziantep', cat: 'corba', ings: ['nohut', 'pirinç', 'kıyma', 'yoğurt', 'un', 'yumurta', 'tereyağı', 'nane', 'tuz', 'su'] },
+  { title: 'Lebeniye Çorbası (Gaziantep)', region: 'Gaziantep', cat: 'corba', ings: ['nohut', 'pirinç', 'kıyma', 'yoğurt', 'un', 'yumurta', 'tereyağı', 'nane', 'tuz', 'su'] },
   { title: 'Şiveydiz (Gaziantep Taze Sarımsaklı Yoğurtlu Yemek)', region: 'Gaziantep', cat: 'et_tavuk', ings: ['kuşbaşı et', 'taze sarımsak', 'taze soğan', 'nohut', 'süzme yoğurt', 'yumurta', 'tereyağı', 'nane', 'pul biber', 'tuz', 'su'] },
   { title: 'Küşleme Kebabı (Gaziantep)', region: 'Gaziantep', cat: 'et_tavuk', ings: ['kuzu kuşbaşı', 'zeytinyağı', 'kekik', 'pul biber', 'tuz', 'domates', 'yeşil biber', 'lavaş ekmeği'] },
   { title: 'Altı Ezmeli Kebap (Gaziantep)', region: 'Gaziantep', cat: 'et_tavuk', ings: ['kıyma', 'domates', 'yeşil biber', 'sarımsak', 'nar ekşisi', 'zeytinyağı', 'pul biber', 'tuz', 'maydanoz'] },
@@ -386,6 +386,63 @@ export const REGIONAL_ANATOLIAN_CATALOG: RegionalTurkishDish[] = [
   { title: 'Fransız Usulü Ratatouille (Fırında Sebze Dizmesi)', region: 'Fransız Mutfağı', cat: 'dunya_mutfagi', ings: ['patlıcan', 'kabak', 'domates', 'kırmızı biber', 'soğan', 'sarımsak', 'salça', 'zeytinyağı', 'kekik', 'fesleğen', 'karabiber', 'tuz'] },
   { title: 'Nohutlu & Tahinli Orta Doğu Humusu (Kimyonlu)', region: 'Orta Doğu / Hatay', cat: 'salata_meze', ings: ['nohut', 'tahin', 'limon suyu', 'sarımsak', 'zeytinyağı', 'kimyon', 'pul biber', 'tuz', 'su'] },
   { title: 'Çıtır Nohut Köftesi Falafel (Tahin Soslu)', region: 'Orta Doğu Mutfağı', cat: 'dunya_mutfagi', ings: ['nohut', 'soğan', 'sarımsak', 'maydanoz', 'kişniş', 'un', 'kabartma tozu', 'kimyon', 'karabiber', 'tahin', 'limon suyu', 'yoğurt', 'sıvı yağ', 'tuz'] },
+
+  // ================= KAYSERİ & ANADOLU ÖZEL REPERTUVAR GENİŞLETMESİ =================
+  { title: 'Develi Cıvıklısı (Kayseri Kuşbaşılı Etli Pidesi)', region: 'Kayseri', cat: 'hamur_borek', ings: ['un', 'maya', 'su', 'tuz', 'kuzu kuşbaşı', 'domates', 'yeşil biber', 'soğan', 'tereyağı', 'pul biber', 'karabiber'] },
+  { title: 'Tahinli Kayseri Katmeri (Tel Tel Çıtır)', region: 'Kayseri', cat: 'hamur_borek', ings: ['un', 'süt', 'su', 'tuz', 'tahin', 'tereyağı', 'sıvı yağ'] },
+  { title: 'Kayseri Pehli (Güveçte Kuzu Etli Yemek)', region: 'Kayseri', cat: 'et_tavuk', ings: ['kuzu kol', 'soğan', 'tereyağı', 'karabiber', 'kimyon', 'kekik', 'tuz', 'su'] },
+  { title: 'Üzümlü & Pastırmalı Kayseri Pilavı', region: 'Kayseri', cat: 'bakliyat_pilav', ings: ['pirinç', 'pastırma', 'kuru üzüm', 'nohut', 'soğan', 'tereyağı', 'yenibahar', 'karabiber', 'tuz', 'su'] },
+  { title: 'Kayseri Sucuklu Köfte (Izgara / Tava)', region: 'Kayseri', cat: 'et_tavuk', ings: ['kıyma', 'sucuk', 'sarımsak', 'soğan', 'kimyon', 'pul biber', 'karabiber', 'bayat ekmek içi', 'tuz', 'sıvı yağ'] },
+
+  // Çeşitlendirilmiş Çorbalar
+  { title: 'Mahluta Çorbası (Adana / Mersin Kimyonlu Mercimek)', region: 'Adana', cat: 'corba', ings: ['kırmızı mercimek', 'pirinç', 'soğan', 'salça', 'tereyağı', 'zeytinyağı', 'kimyon', 'pul biber', 'tuz', 'su'] },
+  { title: 'Kıymalı & Pirinçli Şehriye Çorbası', region: 'Klasik Ev Mutfağı', cat: 'corba', ings: ['tel şehriye', 'kıyma', 'salça', 'tereyağı', 'nane', 'pul biber', 'karabiber', 'limon suyu', 'tuz', 'su'] },
+  { title: 'Terbiyeli İşkembe Tadında Tavuk Çorbası (Yalancı Paça)', region: 'Anadolu', cat: 'corba', ings: ['tavuk but', 'un', 'yoğurt', 'yumurta', 'sarımsak', 'sirke', 'tereyağı', 'pul biber', 'tuz', 'su'] },
+  { title: 'Kremalı Kırmızı Mercimek & Balkabağı Çorbası', region: 'Modern Ev Mutfağı', cat: 'corba', ings: ['kırmızı mercimek', 'balkabağı', 'havuç', 'soğan', 'sarımsak', 'tereyağı', 'kimyon', 'karabiber', 'tuz', 'su'] },
+
+  // Çeşitlendirilmiş Et, Tavuk ve Deniz Ürünleri
+  { title: 'Fırında Beğendili Köfte', region: 'İstanbul / Klasik', cat: 'et_tavuk', ings: ['kıyma', 'soğan', 'bayat ekmek içi', 'yumurta', 'kimyon', 'karabiber', 'patlıcan', 'süt', 'un', 'tereyağı', 'kaşar peyniri', 'tuz'] },
+  { title: 'Sütlü Tavuk Kavurma (Lokum Gibi Tava Yemeği)', region: 'Pratik Ev Mutfağı', cat: 'et_tavuk', ings: ['tavuk göğsü', 'süt', 'sarımsak', 'soğan', 'yeşil biber', 'tereyağı', 'zeytinyağı', 'kekik', 'pul biber', 'karabiber', 'tuz'] },
+  { title: 'Fırında Sebzeli Mücver Köfte (Tavuklu)', region: 'Modern Ev Mutfağı', cat: 'et_tavuk', ings: ['tavuk göğsü', 'kabak', 'havuç', 'yumurta', 'galeta unu', 'kaşar peyniri', 'dereotu', 'sarımsak', 'zeytinyağı', 'karabiber', 'tuz'] },
+  { title: 'Soslu Misket Köfte & Patates Püresi', region: 'Çocukların Favorisi', cat: 'et_tavuk', ings: ['kıyma', 'soğan', 'galeta unu', 'yumurta', 'kimyon', 'patates', 'süt', 'tereyağı', 'salça', 'domates', 'karabiber', 'tuz', 'su'] },
+  { title: 'Fırında Hardal & Ballı Tavuk Pirzola', region: 'Modern Mutfak', cat: 'et_tavuk', ings: ['tavuk but', 'bal', 'hardal', 'sarımsak', 'zeytinyağı', 'kekik', 'pul biber', 'karabiber', 'patates', 'tuz'] },
+  { title: 'İzmir Usulü Domates Soslu Sardalya / Hamsi Fırın', region: 'İzmir / Ege', cat: 'et_tavuk', ings: ['hamsi', 'domates', 'soğan', 'sarımsak', 'limon', 'maydanoz', 'defne yaprağı', 'zeytinyağı', 'karabiber', 'tuz'] },
+  { title: 'Diyarbakır Usulü Ciğer Kavurma (Sumaklı Soğanlı)', region: 'Diyarbakır', cat: 'et_tavuk', ings: ['kuzu ciğeri', 'kuyruk yağı', 'sıvı yağ', 'kimyon', 'pul biber', 'sumak', 'soğan', 'maydanoz', 'lavaş ekmeği', 'tuz'] },
+
+  // Çeşitlendirilmiş Sebze, Zeytinyağlı, Pilav ve Makarna
+  { title: 'Fırında Beşamel Soslu Ispanak Graten (Yumurtalı & Kaşarlı)', region: 'Modern Ev Mutfağı', cat: 'sebze_zeytinyagli', ings: ['ıspanak', 'soğan', 'sarımsak', 'süt', 'un', 'tereyağı', 'kaşar peyniri', 'yumurta', 'karabiber', 'muskat', 'tuz'] },
+  { title: 'Zeytinyağlı Brüksel / Beyaz Lahana Kapuska', region: 'Klasik Ev Mutfağı', cat: 'sebze_zeytinyagli', ings: ['beyaz lahana', 'soğan', 'havuç', 'pirinç', 'salça', 'zeytinyağı', 'limon suyu', 'pul biber', 'karabiber', 'tuz', 'su'] },
+  { title: 'Fırında Sebzeli Mücver Kek (Pırasalı & Beyaz Peynirli)', region: 'Ege Mutfağı', cat: 'sebze_zeytinyagli', ings: ['pırasa', 'havuç', 'yumurta', 'yoğurt', 'sıvı yağ', 'mısır unu', 'un', 'beyaz peynir', 'dereotu', 'kabartma tozu', 'pul biber', 'tuz'] },
+  { title: 'Köz Patlıcanlı & Nohutlu Firik Bulgur Pilavı', region: 'Gaziantep', cat: 'bakliyat_pilav', ings: ['firik bulguru', 'nohut', 'patlıcan', 'kırmızı biber', 'soğan', 'tereyağı', 'zeytinyağı', 'kimyon', 'karabiber', 'tuz', 'su'] },
+  { title: 'Sütlü & Kaşarlı Kremalı Fırın Patates', region: 'Ev Klasiği', cat: 'sebze_zeytinyagli', ings: ['patates', 'süt', 'krema', 'kaşar peyniri', 'sarımsak', 'tereyağı', 'karabiber', 'kekik', 'tuz'] },
+  { title: 'Fesleğenli & Çeri Domatesli Pesto Makarna', region: 'İtalyan Mutfağı', cat: 'dunya_mutfagi', ings: ['makarna', 'fesleğen', 'ceviz', 'sarımsak', 'zeytinyağı', 'kaşar peyniri', 'domates', 'karabiber', 'tuz'] },
+
+  // Çeşitlendirilmiş Kahvaltılık ve Hamur İşleri
+  { title: 'İzmir Usulü Ev Kumrusu (Sucuklu, Salamlı & Kaşarlı)', region: 'İzmir', cat: 'kahvalti', ings: ['ekmek', 'sucuk', 'kaşar peyniri', 'domates', 'salatalık turşusu', 'tereyağı', 'ketçap', 'mayonez'] },
+  { title: 'Avokadolu & Poşe Yumurtalı Kızarmış Ekmek', region: 'Modern Kahvaltı', cat: 'kahvalti', ings: ['avokado', 'yumurta', 'ekmek', 'limon suyu', 'zeytinyağı', 'pul biber', 'karabiber', 'tuz'] },
+  { title: 'Yumuşacık Peynirli Simit Tava (Kahvaltılık Börek Tadında)', region: 'Pratik Kahvaltı', cat: 'kahvalti', ings: ['ekmek', 'yumurta', 'süt', 'beyaz peynir', 'kaşar peyniri', 'sucuk', 'maydanoz', 'tereyağı', 'pul biber'] },
+  { title: 'Kıymalı Su Böreği (Bursa / Anadolu Usulü)', region: 'Bursa / Anadolu', cat: 'hamur_borek', ings: ['hazır yufka', 'kıyma', 'soğan', 'maydanoz', 'yumurta', 'süt', 'sıvı yağ', 'tereyağı', 'karabiber', 'tuz'] },
+  { title: 'Ev Yapımı Karadeniz Kıymalı Yağlı Pide (Trabzon Usulü)', region: 'Trabzon', cat: 'hamur_borek', ings: ['un', 'maya', 'su', 'tuz', 'şeker', 'kıyma', 'soğan', 'domates', 'yeşil biber', 'tereyağı', 'karabiber'] },
+  { title: 'Patatesli & Kaşarlı Gözleme (Tavada Çıtır)', region: 'Anadolu', cat: 'hamur_borek', ings: ['un', 'su', 'tuz', 'patates', 'soğan', 'kaşar peyniri', 'maydanoz', 'pul biber', 'tereyağı', 'sıvı yağ'] },
+
+  // Çeşitlendirilmiş Meze ve Salatalar
+  { title: 'Kuru Domatesli & Cevizli Girit Mezesi', region: 'İzmir / Ege', cat: 'salata_meze', ings: ['beyaz peynir', 'lor peyniri', 'süzme yoğurt', 'sarımsak', 'ceviz', 'antep fıstığı', 'kekik', 'pul biber', 'zeytinyağı'] },
+  { title: 'Nar Ekşili & Cevizli Kırmızı Pancar Tarator', region: 'Modern Meze', cat: 'salata_meze', ings: ['pancar', 'süzme yoğurt', 'sarımsak', 'ceviz', 'nar ekşisi', 'zeytinyağı', 'dereotu', 'tuz'] },
+  { title: 'Sumaklı Kırmızı Soğanlı Ton Balıklı Mısır Salatası', region: 'Pratik Salata', cat: 'salata_meze', ings: ['ton balığı konservesi', 'marul', 'mısır konservesi', 'domates', 'salatalık', 'soğan', 'maydanoz', 'limon suyu', 'zeytinyağı', 'sumak', 'tuz'] },
+
+  // Çeşitlendirilmiş Tatlılar (Gerçek Akşam ve Çay Saati Tatlıları!)
+  { title: 'Fırında Sütlü Kadayıf Tatlısı (Cevizli)', region: 'Klasik Türk Mutfağı', cat: 'tatli', ings: ['tel kadayıf', 'tereyağı', 'ceviz', 'süt', 'şeker', 'vanilya', 'su'] },
+  { title: 'Karamelli Krem Karamel (Fırın Sütlü Tatlı)', region: 'Fransız / Pastane', cat: 'tatli', ings: ['süt', 'yumurta', 'şeker', 'vanilya', 'su'] },
+  { title: 'Çikolata Soslu & Muzlu Ev Waffle', region: 'Modern Tatlı', cat: 'tatli', ings: ['un', 'süt', 'yumurta', 'şeker', 'sıvı yağ', 'kabartma tozu', 'vanilya', 'çikolata', 'muz', 'çilek', 'fındık'] },
+  { title: 'Bisküvili & Muhallebili Yalancı Profiterol (Kup Tatlısı)', region: 'Pratik Sütlü Tatlı', cat: 'tatli', ings: ['süt', 'un', 'nişasta', 'şeker', 'yumurta', 'vanilya', 'krem şanti', 'petibör bisküvi', 'bitter çikolata', 'krema'] },
+  { title: 'Fındıklı & Tahinli Kurabiye (Un Kurabiyesi Tadında)', region: 'Pastane Klasiği', cat: 'tatli', ings: ['tahin', 'pudra şekeri', 'sıvı yağ', 'tereyağı', 'un', 'fındık', 'kabartma tozu', 'vanilya'] },
+  { title: 'Çilekli & Vanilyalı İtalyan Panna Cotta', region: 'İtalyan Mutfağı', cat: 'tatli', ings: ['krema', 'süt', 'şeker', 'vanilya', 'çilek'] },
+
+  // Çeşitlendirilmiş Dünya Mutfağı
+  { title: 'Teriyaki Soslu & Susamlı Fırın Somon', region: 'Japon Mutfağı', cat: 'dunya_mutfagi', ings: ['somon', 'soya sosu', 'bal', 'sarımsak', 'zencefil', 'susam', 'sıvı yağ', 'pirinç'] },
+  { title: 'Körili & Hindistan Cevizli / Kremalı Thai Tavuk', region: 'Tayland Mutfağı', cat: 'dunya_mutfagi', ings: ['tavuk göğsü', 'krema', 'köri', 'zencefil', 'zerdeçal', 'kırmızı biber', 'soğan', 'sarımsak', 'sıvı yağ', 'pirinç', 'tuz'] },
+  { title: 'Kıymalı & Mısırlı Çıtır Meksika Nachos', region: 'Meksika Mutfağı', cat: 'dunya_mutfagi', ings: ['lavaş ekmeği', 'kıyma', 'soğan', 'kuru fasulye', 'mısır konservesi', 'domates', 'salça', 'kaşar peyniri', 'avokado', 'yoğurt', 'kimyon', 'pul biber', 'tuz'] },
+  { title: 'Tereyağlı & Sarımsaklı Kremalı Mantarlı Tavuklu Alfredo', region: 'İtalyan Mutfağı', cat: 'dunya_mutfagi', ings: ['makarna', 'tavuk göğsü', 'mantar', 'krema', 'tereyağı', 'sarımsak', 'kaşar peyniri', 'karabiber', 'tuz'] },
 ];
 
 

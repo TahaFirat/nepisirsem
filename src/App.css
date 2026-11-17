@@ -2624,7 +2624,14 @@ input {
 }
 
 /* ================= SESLİ TARİF OKUMA & ADIM İLERLEME ÇUBUĞU ================= */
-.voice-read-btn {
+.voice-controls-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice-read-btn,
+.voice-cmd-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2638,9 +2645,95 @@ input {
   cursor: pointer;
 }
 
-.voice-read-btn.speaking {
+.voice-read-btn.speaking,
+.voice-cmd-btn.listening {
   background: var(--primary);
   color: #fff;
+}
+
+.voice-assistant-bar {
+  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
+  border: 1.5px solid #fda4af;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voice-bar-top,
+.voice-bar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.voice-step-indicator {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #881337;
+}
+
+.voice-nav-btns,
+.voice-speed-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-mini-btn,
+.voice-speed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid #fecdd3;
+  background: #ffffff;
+  color: #881337;
+  font-size: 0.71rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.voice-mini-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voice-speed-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.voice-select-dropdown {
+  max-width: 170px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #fecdd3;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.recipe-step-card.step-speaking-active {
+  background: #fff1f2;
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.14);
+}
+
+.spoken-word-highlight {
+  background: #ffe4e6;
+  color: #9f1239;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px #fda4af;
 }
 
 .step-progress-bar {

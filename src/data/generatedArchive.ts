@@ -537,7 +537,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-18",
     "title": "Su Böreği (Hazır Yufkadan Pratik)",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "beyaz peynir",
@@ -571,7 +571,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-19",
     "title": "Sigara Böreği",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "lor peyniri",
@@ -1459,7 +1459,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   },
   {
     "id": "tr-62",
-    "title": "Ciğer Sote (Arnavut Ciğeri Değil)",
+    "title": "Ciğer Sote (Tavada Lokanta Usulü)",
     "cat": "et_tavuk",
     "ings": [
       "kuzu ciğeri",
@@ -2094,7 +2094,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-98",
     "title": "Yeşil Domates Kavurması",
-    "cat": "et_tavuk",
+    "cat": "sebze_zeytinyagli",
     "ings": [
       "yeşil domates",
       "soğan",
@@ -2412,7 +2412,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-116",
     "title": "Kol Böreği (Peynirli)",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "beyaz peynir",
@@ -2428,7 +2428,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-117",
     "title": "Gül Böreği (Kıymalı)",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "kıyma",
@@ -2462,7 +2462,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-119",
     "title": "Talaş Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "milföy hamuru",
       "kıyma",
@@ -2598,7 +2598,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-127",
     "title": "Pide (Kuşbaşılı)",
-    "cat": "corba",
+    "cat": "hamur_borek",
     "ings": [
       "un",
       "maya",
@@ -3172,7 +3172,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-162",
     "title": "İncir Uyutması",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "kuru incir",
       "süt",
@@ -3417,7 +3417,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-179",
     "title": "Domatesli Biber Kavurması",
-    "cat": "et_tavuk",
+    "cat": "kahvalti",
     "ings": [
       "yeşil biber",
       "domates",
@@ -3431,7 +3431,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-180",
     "title": "Yumurtalı Ekmek (Fransız Tostu)",
-    "cat": "hamur_borek",
+    "cat": "kahvalti",
     "ings": [
       "bayat ekmek",
       "yumurta",
@@ -3444,7 +3444,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-181",
     "title": "Akıtma (Krep)",
-    "cat": "hamur_borek",
+    "cat": "kahvalti",
     "ings": [
       "un",
       "yumurta",
@@ -3542,7 +3542,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-188",
     "title": "Yoğurtlu Biber Kavurması",
-    "cat": "et_tavuk",
+    "cat": "sebze_zeytinyagli",
     "ings": [
       "sivri biber",
       "çarliston biber",
@@ -3555,7 +3555,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-189",
     "title": "Abant Kebabı",
-    "cat": "sebze_zeytinyagli",
+    "cat": "et_tavuk",
     "ings": [
       "bonfile",
       "mantar",
@@ -3633,7 +3633,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-194",
     "title": "Mısır Ekmeği",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "mısır unu",
       "buğday unu",
@@ -3734,7 +3734,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-200",
     "title": "Midye Dolma",
-    "cat": "sebze_zeytinyagli",
+    "cat": "et_tavuk",
     "ings": [
       "midye",
       "pirinç",
@@ -4083,7 +4083,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-220",
     "title": "Laz Böreği",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "baklavalık yufka",
       "tereyağı",
@@ -4119,7 +4119,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-222",
     "title": "Zeruze",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "kuru kayısı",
       "ceviz",
@@ -4235,7 +4235,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-229",
     "title": "Patlıcan Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "küçük patlıcan",
       "şeker",
@@ -4248,7 +4248,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-230",
     "title": "Turunç Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "turunç kabuğu",
       "şeker",
@@ -4259,7 +4259,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-231",
     "title": "İncir Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "taze incir",
       "şeker",
@@ -4271,7 +4271,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-232",
     "title": "Çilek Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "çilek",
       "şeker",
@@ -4281,7 +4281,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-233",
     "title": "Vişne Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "vişne",
       "şeker",
@@ -4291,7 +4291,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-234",
     "title": "Gül Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kokulu gül yaprağı",
       "şeker",
@@ -4302,7 +4302,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-235",
     "title": "Domates Reçeli",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kiraz domates",
       "şeker",
@@ -4314,7 +4314,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-236",
     "title": "Erik Marmelatı",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kırmızı erik",
       "şeker",
@@ -4324,7 +4324,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-237",
     "title": "Kayısı Marmelatı",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kayısı",
       "şeker",
@@ -4334,7 +4334,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-238",
     "title": "Kızılcık Marmelatı",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kızılcık",
       "şeker",
@@ -4344,7 +4344,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-239",
     "title": "Kuşburnu Marmelatı",
-    "cat": "tatli",
+    "cat": "kahvalti",
     "ings": [
       "kuşburnu",
       "şeker",
@@ -4403,7 +4403,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-244",
     "title": "Koruk Suyu",
-    "cat": "sebze_zeytinyagli",
+    "cat": "salata_meze",
     "ings": [
       "koruk üzümü",
       "su",
@@ -4413,7 +4413,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-245",
     "title": "Şalgam Suyu (Ev Yapımı)",
-    "cat": "sebze_zeytinyagli",
+    "cat": "salata_meze",
     "ings": [
       "siyah havuç",
       "şalgam turpu",
@@ -4426,7 +4426,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-246",
     "title": "Boza",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "bulgur",
       "pirinç",
@@ -4570,7 +4570,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-255",
     "title": "Kaşık Dökmesi",
-    "cat": "corba",
+    "cat": "kahvalti",
     "ings": [
       "yumurta",
       "yoğurt",
@@ -4815,7 +4815,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-268",
     "title": "Pazı Sarması (Etli)",
-    "cat": "sebze_zeytinyagli",
+    "cat": "et_tavuk",
     "ings": [
       "pazı",
       "kıyma",
@@ -4935,7 +4935,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-275",
     "title": "Tandır Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "kıyma",
@@ -4952,7 +4952,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-276",
     "title": "Avcı Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "kıyma",
@@ -4971,7 +4971,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-277",
     "title": "Balık Ekmek",
-    "cat": "hamur_borek",
+    "cat": "et_tavuk",
     "ings": [
       "uskumru",
       "palamut",
@@ -5066,7 +5066,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-283",
     "title": "Kaygana",
-    "cat": "hamur_borek",
+    "cat": "kahvalti",
     "ings": [
       "yumurta",
       "un",
@@ -5118,7 +5118,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-286",
     "title": "Tuzlu Kurabiye (Pastane Usulü)",
-    "cat": "tatli",
+    "cat": "hamur_borek",
     "ings": [
       "tereyağı",
       "margarin",
@@ -5210,7 +5210,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-291",
     "title": "Tavuklu Keşkek",
-    "cat": "tatli",
+    "cat": "et_tavuk",
     "ings": [
       "buğday",
       "tavuk göğsü",
@@ -5224,7 +5224,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-292",
     "title": "Etli Keşkek",
-    "cat": "tatli",
+    "cat": "et_tavuk",
     "ings": [
       "buğday",
       "kuzu eti",
@@ -5239,7 +5239,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-293",
     "title": "Mercimekli Köfte (Salçalı)",
-    "cat": "et_tavuk",
+    "cat": "salata_meze",
     "ings": [
       "kırmızı mercimek",
       "köftelik bulgur",
@@ -5299,7 +5299,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-297",
     "title": "Simit Kebabı",
-    "cat": "hamur_borek",
+    "cat": "et_tavuk",
     "ings": [
       "kuzu kıyma",
       "köftelik bulgur",
@@ -5380,7 +5380,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-302",
     "title": "Pideli Köfte",
-    "cat": "hamur_borek",
+    "cat": "et_tavuk",
     "ings": [
       "kıyma",
       "soğan",
@@ -5421,7 +5421,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-305",
     "title": "Tavuklu Talaş Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "milföy hamuru",
       "tavuk göğsü",
@@ -5455,7 +5455,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-307",
     "title": "Peynirli Muska Böreği",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "beyaz peynir",
@@ -5484,7 +5484,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-309",
     "title": "Boşnak Böreği (Kıymalı)",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "un",
       "su",
@@ -5501,7 +5501,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-310",
     "title": "Sarıyer Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "milföy hamuru",
       "kıyma",
@@ -5516,7 +5516,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-311",
     "title": "Kaytaz Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "un",
       "maya",
@@ -5534,7 +5534,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-312",
     "title": "Paçanga Böreği",
-    "cat": "et_tavuk",
+    "cat": "hamur_borek",
     "ings": [
       "hazır yufka",
       "pastırma",
@@ -5583,7 +5583,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-315",
     "title": "Pekmezli Kaçamak",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "mısır unu",
       "su",
@@ -5846,7 +5846,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   },
   {
     "id": "tr-332",
-    "title": "Sam Tatlısı (Şambali)",
+    "title": "Şambali (Şam Tatlısı)",
     "cat": "tatli",
     "ings": [
       "irmik",
@@ -5913,7 +5913,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-336",
     "title": "İrmik Topları (Hindistan Cevizli)",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "irmik",
       "süt",
@@ -5943,7 +5943,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-338",
     "title": "Haşhaşlı Çörek",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "un",
       "maya",
@@ -5961,7 +5961,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-339",
     "title": "Tahinli Çörek",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "un",
       "maya",
@@ -5980,7 +5980,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-340",
     "title": "Kandil Simidi",
-    "cat": "sebze_zeytinyagli",
+    "cat": "hamur_borek",
     "ings": [
       "tereyağı",
       "sıvı yağ",
@@ -6000,7 +6000,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-341",
     "title": "Peynirli Tepsi Keki (Tuzlu)",
-    "cat": "tatli",
+    "cat": "hamur_borek",
     "ings": [
       "yumurta",
       "yoğurt",
@@ -6045,7 +6045,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-344",
     "title": "Erik Hoşafı",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "kuru erik",
       "taze erik",
@@ -6057,7 +6057,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-345",
     "title": "Kayısı Hoşafı",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "kuru kayısı",
       "taze kayısı",
@@ -6069,7 +6069,7 @@ export const COMPACT_TURKISH_ARCHIVE: CompactTurkishRecipe[] = [
   {
     "id": "tr-346",
     "title": "Üzüm Hoşafı",
-    "cat": "sebze_zeytinyagli",
+    "cat": "tatli",
     "ings": [
       "kuru üzüm",
       "su",

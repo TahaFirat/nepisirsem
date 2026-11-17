@@ -25,6 +25,12 @@ function postNativeMessage(payload: Record<string, unknown>): boolean {
   return false;
 }
 
+export function isNativeIosBridgeAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  const wk = (window as WebKitWindow).webkit;
+  return typeof wk?.messageHandlers?.nepisirsemNative?.postMessage === 'function';
+}
+
 export function triggerNativeHaptic(
   style: 'light' | 'medium' | 'success' | 'warning' = 'light'
 ): void {
@@ -57,4 +63,27 @@ export function cancelNativeCookingTimer(): void {
 
 export function triggerTimerFinishedChime(): void {
   postNativeMessage({ action: 'timerFinishedChime' });
+}
+
+export function speakTextNativeIos(
+  text: string,
+  rate: number,
+  voiceName: string | undefined,
+  token: number
+): boolean {
+  return postNativeMessage({
+    action: 'speakText',
+    text,
+    rate,
+    voiceName: voiceName || '',
+    token,
+  });
+}
+
+export function stopSpeakNativeIos(): boolean {
+  return postNativeMessage({ action: 'stopSpeak' });
+}
+
+export function requestNativeTurkishVoices(): boolean {
+  return postNativeMessage({ action: 'listTurkishVoices' });
 }
