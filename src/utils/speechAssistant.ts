@@ -1,105 +1,105 @@
 /**
- * Sesli Tarif Asistanı & Sesli Komut Motoru
+ * Doğal Yapay Zeka (Neural VITS) Sesli Tarif Asistanı
  *
- * Text-to-Speech (getVoices, hız ayarı, anlık kelime vurgulama / onboundary) ve
- * Speech-to-Text (Türkçe sesli komut algılama) mimarisi MIT Lisanslı
- * ErenBekman/speech-text-voice (https://github.com/ErenBekman/speech-text-voice)
- * projesinden esinlenilerek ve geliştirilerek uyarlanmıştır.
- *
- * MIT License — Commercial & App Store distribution permitted.
+ * Doğal insan sesi sentezi için MIT Lisanslı @mintplex-labs/piper-tts-web
+ * (https://github.com/Mintplex-Labs/piper-tts-web) ve Rhasspy Piper Türkçe
+ * nöral ses modelleri (tr_TR-dfki-medium, tr_TR-fettah-medium) kullanılır.
+ * İnternet yokken veya ilk indirme başarısız olursa cihazın yerel ses motoruna
+ * (iOS AVSpeechSynthesizer / Web Speech API) otomatik yedek geçiş yapar.
  */
 import {
   isNativeIosBridgeAvailable,
-  requestNativeTurkishVoices,
+  prepareNativeAudioSession,
   speakTextNativeIos,
   stopSpeakNativeIos,
 } from './nativeBridge';
 
-export type VoiceCommandAction = 'next' | 'prev' | 'stop' | 'play' | 'timer';
+export type NeuralVoiceOptionId = 'tr_TR-dfki-medium' | 'tr_TR-fettah-medium' | 'system';
 
-interface SpeechRecognitionAlternativeLike {
-  transcript?: string;
+export interface VoiceOptionItem {
+  id: NeuralVoiceOptionId;
+  label: string;
 }
 
-interface SpeechRecognitionResultLike {
-  0?: SpeechRecognitionAlternativeLike;
-}
-
-interface SpeechRecognitionEventLike {
-  results?: ArrayLike<SpeechRecognitionResultLike>;
-}
-
-interface SpeechRecognitionInstanceLike {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((ev: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
+export const TURKISH_VOICE_OPTIONS: VoiceOptionItem[] = [
+  { id: 'tr_TR-dfki-medium', label: '✨ Doğal AI Ses (Kadın / Defne)' },
+  { id: 'tr_TR-fettah-medium', label: '✨ Doğal AI Ses (Erkek / Fettah)' },
+  { id: 'system', label: '⚡ Hızlı Sistem Sesi (Çevrimdışı)' },
+];
 
 interface SpeechWindow extends Window {
-  __nepisirsemOnNativeVoices?: (voices: string[]) => void;
+  AudioContext?: typeof AudioContext;
+  webkitAudioContext?: typeof AudioContext;
   __nepisirsemOnSpeechBoundary?: (token: number, charIndex: number, charLength: number) => void;
   __nepisirsemOnSpeechEnd?: (token: number) => void;
-  SpeechRecognition?: new () => SpeechRecognitionInstanceLike;
-  webkitSpeechRecognition?: new () => SpeechRecognitionInstanceLike;
 }
 
 let activeSpeechToken = 0;
+let sharedAudioCtx: AudioContext | null = null;
+let currentSourceNode: AudioBufferSourceNode | null = null;
+let wordSyncInterval: ReturnType<typeof setInterval> | null = null;
+let lastLoadedNeuralVoice: string | null = null;
 
-function pickPreferredVoiceName(names: string[]): string {
-  const yelda = names.find((n) => n.toLocaleLowerCase('tr-TR').includes('yelda'));
-  if (yelda) return yelda;
-  const cem = names.find((n) => n.toLocaleLowerCase('tr-TR').includes('cem'));
-  if (cem) return cem;
-  return names[0] || 'Türkçe Asistan';
+// Adım metinleri ve sesler için bellek içi WAV önbelleği (geri/ileri adımda 0ms bekleme)
+const audioBufferCache = new Map<string, AudioBuffer>();
+
+function getOrCreateAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const win = window as SpeechWindow;
+  const Ctor = win.AudioContext || win.webkitAudioContext;
+  if (!Ctor) return null;
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new Ctor();
+  }
+  return sharedAudioCtx;
 }
 
-export function loadAvailableTurkishVoices(onVoicesLoaded: (voices: string[], defaultVoice: string) => void): void {
+/**
+ * iOS WKWebView & Safari güvenlik politikası gereği ses çalma iznini
+ * doğrudan kullanıcının dokunma (onClick) anında senkron olarak açar.
+ */
+export function unlockAudioForPlayback(): void {
   if (typeof window === 'undefined') return;
-  const win = window as SpeechWindow;
-
-  if (isNativeIosBridgeAvailable()) {
-    win.__nepisirsemOnNativeVoices = (names: string[]) => {
-      const list = Array.isArray(names) && names.length > 0 ? names : ['Yelda (iOS Türkçe)'];
-      onVoicesLoaded(list, pickPreferredVoiceName(list));
-    };
-    requestNativeTurkishVoices();
-    return;
+  prepareNativeAudioSession();
+  const ctx = getOrCreateAudioContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
   }
-
-  if (!('speechSynthesis' in window)) return;
-
-  const extractVoices = () => {
-    const all = window.speechSynthesis.getVoices();
-    if (!all || all.length === 0) return false;
-    const trVoices = all
-      .filter((v) => v.lang.toLowerCase().startsWith('tr'))
-      .map((v) => v.name);
-    const list = trVoices.length > 0 ? Array.from(new Set(trVoices)) : [all[0].name];
-    onVoicesLoaded(list, pickPreferredVoiceName(list));
-    return true;
-  };
-
-  if (!extractVoices()) {
-    const prevHandler = window.speechSynthesis.onvoiceschanged;
-    window.speechSynthesis.onvoiceschanged = () => {
-      extractVoices();
-      if (typeof prevHandler === 'function') {
-        prevHandler.call(window.speechSynthesis, new Event('voiceschanged'));
-      }
-    };
+  try {
+    const emptyBuffer = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = emptyBuffer;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch {
+    // ignore
   }
 }
 
 export function stopAllSpeech(): void {
   activeSpeechToken += 1;
+
+  if (wordSyncInterval) {
+    clearInterval(wordSyncInterval);
+    wordSyncInterval = null;
+  }
+
+  if (currentSourceNode) {
+    try {
+      currentSourceNode.onended = null;
+      currentSourceNode.stop();
+      currentSourceNode.disconnect();
+    } catch {
+      // ignore
+    }
+    currentSourceNode = null;
+  }
+
   if (isNativeIosBridgeAvailable()) {
     stopSpeakNativeIos();
   }
+
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
@@ -109,32 +109,44 @@ export function stopAllSpeech(): void {
   }
 }
 
-export function speakStepText(options: {
+interface WordSpan {
+  start: number;
+  length: number;
+}
+
+function tokenizeWordSpans(text: string): WordSpan[] {
+  const spans: WordSpan[] = [];
+  const regex = /\S+/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    spans.push({ start: match.index, length: match[0].length });
+  }
+  return spans;
+}
+
+function speakWithSystemFallback(options: {
+  token: number;
   text: string;
   rate: number;
-  voiceName?: string;
   onWordBoundary: (charIndex: number, charLength: number) => void;
   onFinish: () => void;
   onError?: () => void;
 }): void {
   if (typeof window === 'undefined') return;
-  stopAllSpeech();
-
-  const myToken = ++activeSpeechToken;
   const win = window as SpeechWindow;
 
   if (isNativeIosBridgeAvailable()) {
     win.__nepisirsemOnSpeechBoundary = (token: number, charIndex: number, charLength: number) => {
-      if (token === myToken) {
+      if (token === options.token) {
         options.onWordBoundary(charIndex, charLength);
       }
     };
     win.__nepisirsemOnSpeechEnd = (token: number) => {
-      if (token === myToken) {
+      if (token === options.token) {
         options.onFinish();
       }
     };
-    const ok = speakTextNativeIos(options.text, options.rate, options.voiceName, myToken);
+    const ok = speakTextNativeIos(options.text, options.rate, undefined, options.token);
     if (ok) return;
   }
 
@@ -145,31 +157,28 @@ export function speakStepText(options: {
 
   const utterance = new SpeechSynthesisUtterance(options.text);
   utterance.lang = 'tr-TR';
-  utterance.rate = Math.max(0.65, Math.min(1.5, options.rate));
+  utterance.rate = Math.max(0.75, Math.min(1.4, options.rate));
 
   const voices = window.speechSynthesis.getVoices();
-  if (options.voiceName && voices.length > 0) {
-    const matched = voices.find((v) => v.name === options.voiceName);
-    if (matched) utterance.voice = matched;
-  } else if (voices.length > 0) {
+  if (voices.length > 0) {
     const tr = voices.find((v) => v.lang.toLowerCase().startsWith('tr'));
     if (tr) utterance.voice = tr;
   }
 
   utterance.onboundary = (event: SpeechSynthesisEvent) => {
-    if (myToken !== activeSpeechToken) return;
+    if (options.token !== activeSpeechToken) return;
     const len = typeof event.charLength === 'number' && event.charLength > 0 ? event.charLength : 6;
     options.onWordBoundary(event.charIndex, len);
   };
 
   utterance.onend = () => {
-    if (myToken === activeSpeechToken) {
+    if (options.token === activeSpeechToken) {
       options.onFinish();
     }
   };
 
   utterance.onerror = () => {
-    if (myToken === activeSpeechToken) {
+    if (options.token === activeSpeechToken) {
       options.onError?.();
     }
   };
@@ -177,56 +186,163 @@ export function speakStepText(options: {
   window.speechSynthesis.speak(utterance);
 }
 
-export function isVoiceCommandSupported(): boolean {
-  if (typeof window === 'undefined') return false;
-  const win = window as SpeechWindow;
-  return Boolean(win.SpeechRecognition || win.webkitSpeechRecognition);
-}
+/**
+ * Doğal Türkçe Nöral AI sesiyle metni sentezler ve çalar.
+ * Model cihazda yoksa ilk seferinde indirip önbelleğe alır; sonraki tüm okumalarda
+ * internetsiz ve anında doğal insan sesi üretir.
+ */
+export async function speakStepNatural(options: {
+  text: string;
+  voiceId: NeuralVoiceOptionId;
+  rate: number;
+  onStatusChange?: (statusText: string | null) => void;
+  onDownloadProgress?: (percent: number | null) => void;
+  onWordBoundary: (charIndex: number, charLength: number) => void;
+  onFinish: () => void;
+  onError?: () => void;
+}): Promise<void> {
+  if (typeof window === 'undefined') return;
+  stopAllSpeech();
 
-export function startVoiceCommandListener(callbacks: {
-  onCommand: (action: VoiceCommandAction, rawTranscript: string) => void;
-  onEnd: () => void;
-}): (() => void) | null {
-  if (typeof window === 'undefined') return null;
-  const win = window as SpeechWindow;
-  const Ctor = win.SpeechRecognition || win.webkitSpeechRecognition;
-  if (!Ctor) return null;
+  const myToken = ++activeSpeechToken;
+
+  if (options.voiceId === 'system') {
+    options.onDownloadProgress?.(null);
+    options.onStatusChange?.('⚡ Cihaz Sesli Asistanı');
+    speakWithSystemFallback({
+      token: myToken,
+      text: options.text,
+      rate: options.rate,
+      onWordBoundary: options.onWordBoundary,
+      onFinish: options.onFinish,
+      onError: options.onError,
+    });
+    return;
+  }
 
   try {
-    const rec = new Ctor();
-    rec.lang = 'tr-TR';
-    rec.interimResults = false;
-    rec.continuous = false;
+    const cacheKey = `${options.voiceId}::${options.text}`;
+    let decodedBuffer = audioBufferCache.get(cacheKey);
+    const ctx = getOrCreateAudioContext();
 
-    rec.onresult = (ev) => {
-      const transcript = (ev.results?.[0]?.[0]?.transcript || '').toLocaleLowerCase('tr-TR').trim();
-      if (!transcript) return;
-      if (/sonraki|ileri|geç|diğer/.test(transcript)) {
-        callbacks.onCommand('next', transcript);
-      } else if (/önceki|geri/.test(transcript)) {
-        callbacks.onCommand('prev', transcript);
-      } else if (/dur|kapat|sus|bitir/.test(transcript)) {
-        callbacks.onCommand('stop', transcript);
-      } else if (/zamanlayıcı|sayaç|başlat|kur/.test(transcript)) {
-        callbacks.onCommand('timer', transcript);
-      } else if (/oku|devam|tekrar/.test(transcript)) {
-        callbacks.onCommand('play', transcript);
+    if (!ctx) {
+      throw new Error('AudioContext not available');
+    }
+
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    if (!decodedBuffer) {
+      options.onStatusChange?.('🎙️ Doğal insan sesi hazırlanıyor...');
+      const piper = await import('@mintplex-labs/piper-tts-web');
+
+      if (myToken !== activeSpeechToken) return;
+
+      // Piper TtsSession singleton farklı ses seçildiğinde sıfırlanmalı
+      const SessionClass = piper.TtsSession as unknown as {
+        _instance: unknown;
+        new (opts: {
+          voiceId: 'tr_TR-dfki-medium' | 'tr_TR-fettah-medium';
+          progress?: (p: { total: number; loaded: number }) => void;
+        }): {
+          predict: (txt: string) => Promise<Blob>;
+        };
+      };
+
+      if (lastLoadedNeuralVoice && lastLoadedNeuralVoice !== options.voiceId) {
+        SessionClass._instance = null;
+      }
+
+      const session = new SessionClass({
+        voiceId: options.voiceId,
+        progress: (p) => {
+          if (myToken !== activeSpeechToken) return;
+          if (p.total > 0) {
+            const pct = Math.min(99, Math.round((p.loaded / p.total) * 100));
+            options.onDownloadProgress?.(pct);
+            options.onStatusChange?.(`📥 Doğal Türkçe ses indiriliyor (%${pct}) — tek seferlik`);
+          }
+        },
+      });
+
+      const wavBlob = await session.predict(options.text);
+      if (myToken !== activeSpeechToken) return;
+
+      lastLoadedNeuralVoice = options.voiceId;
+      options.onDownloadProgress?.(null);
+
+      const arrayBuf = await wavBlob.arrayBuffer();
+      if (myToken !== activeSpeechToken) return;
+
+      decodedBuffer = await ctx.decodeAudioData(arrayBuf);
+      if (myToken !== activeSpeechToken) return;
+
+      audioBufferCache.set(cacheKey, decodedBuffer);
+      // Belleği hafif tutmak için en fazla 30 adım önbellekte tut
+      if (audioBufferCache.size > 30) {
+        const firstKey = audioBufferCache.keys().next().value;
+        if (firstKey) audioBufferCache.delete(firstKey);
+      }
+    }
+
+    if (myToken !== activeSpeechToken) return;
+
+    options.onDownloadProgress?.(null);
+    options.onStatusChange?.('✨ Doğal Türkçe AI Ses');
+
+    const source = ctx.createBufferSource();
+    source.buffer = decodedBuffer;
+    source.playbackRate.value = Math.max(0.75, Math.min(1.4, options.rate));
+    source.connect(ctx.destination);
+    currentSourceNode = source;
+
+    const totalPlaySeconds = decodedBuffer.duration / source.playbackRate.value;
+    const spans = tokenizeWordSpans(options.text);
+    const startTime = ctx.currentTime;
+
+    if (spans.length > 0 && totalPlaySeconds > 0.1) {
+      wordSyncInterval = setInterval(() => {
+        if (myToken !== activeSpeechToken) {
+          if (wordSyncInterval) clearInterval(wordSyncInterval);
+          return;
+        }
+        const elapsed = Math.max(0, ctx.currentTime - startTime);
+        const progress = Math.min(0.999, elapsed / totalPlaySeconds);
+        const idx = Math.min(spans.length - 1, Math.floor(progress * spans.length));
+        const span = spans[idx];
+        if (span) {
+          options.onWordBoundary(span.start, span.length);
+        }
+      }, 90);
+    }
+
+    source.onended = () => {
+      if (wordSyncInterval) {
+        clearInterval(wordSyncInterval);
+        wordSyncInterval = null;
+      }
+      if (currentSourceNode === source) {
+        currentSourceNode = null;
+      }
+      if (myToken === activeSpeechToken) {
+        options.onFinish();
       }
     };
 
-    rec.onerror = () => callbacks.onEnd();
-    rec.onend = () => callbacks.onEnd();
-    rec.start();
-
-    return () => {
-      try {
-        rec.stop();
-      } catch {
-        // ignore
-      }
-    };
-  } catch {
-    callbacks.onEnd();
-    return null;
+    source.start(0);
+  } catch (err) {
+    console.warn('Doğal AI ses motoru yedek moda geçti:', err);
+    if (myToken !== activeSpeechToken) return;
+    options.onDownloadProgress?.(null);
+    options.onStatusChange?.('⚡ Çevrimdışı Sistem Sesi (Yedek)');
+    speakWithSystemFallback({
+      token: myToken,
+      text: options.text,
+      rate: options.rate,
+      onWordBoundary: options.onWordBoundary,
+      onFinish: options.onFinish,
+      onError: options.onError,
+    });
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Users,
@@ -22,7 +22,6 @@ import {
   Sparkles,
   SkipBack,
   SkipForward,
-  Mic,
 } from 'lucide-react';
 import type { MatchedRecipe } from '../types/recipe';
 import {
@@ -42,12 +41,12 @@ import {
   triggerTimerFinishedChime,
 } from '../utils/nativeBridge';
 import {
-  loadAvailableTurkishVoices,
-  speakStepText,
+  TURKISH_VOICE_OPTIONS,
+  unlockAudioForPlayback,
+  speakStepNatural,
   stopAllSpeech,
-  isVoiceCommandSupported,
-  startVoiceCommandListener,
 } from '../utils/speechAssistant';
+import type { NeuralVoiceOptionId } from '../utils/speechAssistant';
 
 interface RecipeDetailModalProps {
   matchedRecipe: MatchedRecipe | null;
@@ -85,20 +84,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [speakingStepIdx, setSpeakingStepIdx] = useState<number | null>(null);
   const [spokenRange, setSpokenRange] = useState<{ start: number; length: number } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(1.0);
-  const [voiceList, setVoiceList] = useState<string[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
-  const [isListeningCommand, setIsListeningCommand] = useState<boolean>(false);
-  const voiceStopperRef = useRef<(() => void) | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<NeuralVoiceOptionId>('tr_TR-dfki-medium');
+  const [speechStatusText, setSpeechStatusText] = useState<string | null>(null);
+  const [modelDownloadPercent, setModelDownloadPercent] = useState<number | null>(null);
 
   const currentRecipeId = matchedRecipe?.recipe.id;
   const expandedPantry = useMemo(() => expandPantrySet(pantryItems), [pantryItems]);
-
-  useEffect(() => {
-    loadAvailableTurkishVoices((voices, defVoice) => {
-      setVoiceList(voices);
-      setSelectedVoice((prev) => prev || defVoice);
-    });
-  }, []);
 
   useEffect(() => {
     if (matchedRecipe) {
@@ -111,11 +102,11 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     }
     return () => {
       stopAllSpeech();
-      voiceStopperRef.current?.();
       setIsSpeaking(false);
       setSpeakingStepIdx(null);
       setSpokenRange(null);
-      setIsListeningCommand(false);
+      setSpeechStatusText(null);
+      setModelDownloadPercent(null);
     };
   }, [currentRecipeId, defaultServings]);
 
@@ -227,12 +218,20 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     }
   };
 
-  const speakSpecificStep = (stepIdx: number, rateOverride?: number, voiceOverride?: string) => {
+  const speakSpecificStep = (
+    stepIdx: number,
+    rateOverride?: number,
+    voiceOverride?: NeuralVoiceOptionId
+  ) => {
+    unlockAudioForPlayback();
+
     if (stepIdx < 0 || stepIdx >= recipe.steps.length) {
       stopAllSpeech();
       setIsSpeaking(false);
       setSpeakingStepIdx(null);
       setSpokenRange(null);
+      setSpeechStatusText(null);
+      setModelDownloadPercent(null);
       return;
     }
 
@@ -247,10 +246,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     setSpeakingStepIdx(stepIdx);
     setSpokenRange(null);
 
-    speakStepText({
+    speakStepNatural({
       text: textToSpeak,
       rate: activeRate,
-      voiceName: activeVoice,
+      voiceId: activeVoice,
+      onStatusChange: (statusText) => setSpeechStatusText(statusText),
+      onDownloadProgress: (pct) => setModelDownloadPercent(pct),
       onWordBoundary: (charIndex, charLength) => {
         const offsetInInstruction = charIndex - prefix.length;
         if (offsetInInstruction >= 0) {
@@ -264,12 +265,15 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
         } else {
           setIsSpeaking(false);
           setSpeakingStepIdx(null);
+          setSpeechStatusText(null);
         }
       },
       onError: () => {
         setIsSpeaking(false);
         setSpeakingStepIdx(null);
         setSpokenRange(null);
+        setSpeechStatusText(null);
+        setModelDownloadPercent(null);
       },
     });
   };
@@ -281,43 +285,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       setIsSpeaking(false);
       setSpeakingStepIdx(null);
       setSpokenRange(null);
+      setSpeechStatusText(null);
+      setModelDownloadPercent(null);
       return;
     }
+    unlockAudioForPlayback();
     speakSpecificStep(0);
-  };
-
-  const handleToggleVoiceCommand = () => {
-    if (isListeningCommand) {
-      voiceStopperRef.current?.();
-      setIsListeningCommand(false);
-      return;
-    }
-    setIsListeningCommand(true);
-    voiceStopperRef.current = startVoiceCommandListener({
-      onCommand: (cmd) => {
-        const current = speakingStepIdx ?? 0;
-        if (cmd === 'next') {
-          speakSpecificStep(Math.min(recipe.steps.length - 1, current + 1));
-        } else if (cmd === 'prev') {
-          speakSpecificStep(Math.max(0, current - 1));
-        } else if (cmd === 'stop') {
-          stopAllSpeech();
-          setIsSpeaking(false);
-          setSpeakingStepIdx(null);
-          setSpokenRange(null);
-        } else if (cmd === 'play') {
-          speakSpecificStep(current);
-        } else if (cmd === 'timer') {
-          const timerIdx = recipe.steps.findIndex((s) => Boolean(s.timerMinutes));
-          if (timerIdx >= 0) {
-            startStepTimer(timerIdx, recipe.steps[timerIdx].timerMinutes!);
-          }
-        }
-      },
-      onEnd: () => {
-        setIsListeningCommand(false);
-      },
-    });
   };
 
   const renderHighlightedInstruction = (instruction: string, idx: number) => {
@@ -550,24 +523,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               </h3>
 
               <div className="voice-controls-group">
-                {isVoiceCommandSupported() && (
-                  <button
-                    type="button"
-                    className={`voice-cmd-btn ${isListeningCommand ? 'listening' : ''}`}
-                    onClick={handleToggleVoiceCommand}
-                    title="Sesli Komut: Sonraki, Önceki, Durdur, Başlat"
-                  >
-                    <Mic size={14} />
-                    <span>{isListeningCommand ? 'Dinliyor...' : 'Komut'}</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   className={`voice-read-btn ${isSpeaking ? 'speaking' : ''}`}
                   onClick={toggleVoiceRead}
                 >
                   {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                  <span>{isSpeaking ? 'Durdur' : 'Sesli Oku'}</span>
+                  <span>{isSpeaking ? 'Durdur' : 'Doğal Sesle Oku'}</span>
                 </button>
               </div>
             </div>
@@ -576,7 +538,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
               <div className="voice-assistant-bar">
                 <div className="voice-bar-top">
                   <span className="voice-step-indicator">
-                    🔊 {(speakingStepIdx ?? 0) + 1}/{recipe.steps.length}. Adım Okunuyor
+                    {speechStatusText || `🔊 ${(speakingStepIdx ?? 0) + 1}/${recipe.steps.length}. Adım`}
                   </span>
                   <div className="voice-nav-btns">
                     <button
@@ -604,6 +566,15 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                   </div>
                 </div>
 
+                {modelDownloadPercent !== null && (
+                  <div className="step-progress-bar" style={{ marginBottom: 0 }}>
+                    <div
+                      className="step-progress-fill"
+                      style={{ width: `${modelDownloadPercent}%` }}
+                    />
+                  </div>
+                )}
+
                 <div className="voice-bar-settings">
                   <div className="voice-speed-pills">
                     {[
@@ -627,26 +598,24 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     ))}
                   </div>
 
-                  {voiceList.length > 1 && (
-                    <select
-                      className="voice-select-dropdown"
-                      value={selectedVoice}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setSelectedVoice(v);
-                        if (speakingStepIdx !== null) {
-                          speakSpecificStep(speakingStepIdx, speechRate, v);
-                        }
-                      }}
-                      aria-label="Ses seçimi"
-                    >
-                      {voiceList.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  <select
+                    className="voice-select-dropdown"
+                    value={selectedVoice}
+                    onChange={(e) => {
+                      const v = e.target.value as NeuralVoiceOptionId;
+                      setSelectedVoice(v);
+                      if (speakingStepIdx !== null) {
+                        speakSpecificStep(speakingStepIdx, speechRate, v);
+                      }
+                    }}
+                    aria-label="Ses seçimi"
+                  >
+                    {TURKISH_VOICE_OPTIONS.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             )}

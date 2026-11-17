@@ -496,9 +496,49 @@ input {
   font-weight: 800;
   color: var(--text-dark);
   line-height: 1.28;
+  word-break: break-word;
+}
+
+.menu-shuffle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: linear-gradient(135deg, var(--primary) 0%, #f97316 100%);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.84rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.24);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
+  transition: transform 0.12s;
+}
+
+.menu-shuffle-btn:active {
+  transform: scale(0.97);
+}
+
+.custom-recipe-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custom-recipe-select,
+.custom-recipe-time-input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  font-size: 0.88rem;
+  background: #f8fafc;
+  color: var(--text-dark);
 }
 
 .header-title-wrap p {
@@ -1319,12 +1359,14 @@ input {
 }
 
 .menu-slot-info h3 {
-  font-size: 0.96rem;
+  font-size: 0.94rem;
   font-weight: 800;
   color: var(--text-dark);
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .menu-slot-info p {
@@ -2280,12 +2322,41 @@ input {
     display: none;
   }
 
-  .surprise-me-btn {
+  .main-header .surprise-me-btn {
     width: 34px;
     height: 34px;
     padding: 0;
     border-radius: 50%;
     justify-content: center;
+  }
+
+  .panel-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .menu-shuffle-btn {
+    width: 100%;
+    padding: 11px 16px;
+  }
+
+  .cookware-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-recipe-meta-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .custom-recipe-select {
+    grid-column: span 2;
+  }
+
+  .voice-select-dropdown {
+    max-width: 100%;
+    flex: 1;
+    min-width: 150px;
   }
 
   .info-guide-btn {

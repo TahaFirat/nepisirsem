@@ -1032,10 +1032,14 @@ export function App() {
                 </div>
                 <button
                   type="button"
-                  className="surprise-me-btn"
-                  onClick={() => setMenuSeed((s) => s + 1)}
+                  className="menu-shuffle-btn"
+                  onClick={() => {
+                    triggerNativeHaptic('medium');
+                    setMenuSeed((s) => s + 1);
+                  }}
                 >
-                  <Dices size={16} /> Menüyü Değiştir
+                  <Dices size={16} />
+                  <span>Menüyü Değiştir</span>
                 </button>
               </div>
 
@@ -1496,9 +1500,9 @@ export function App() {
                   çevrimdışı / offline) çalıştırır. Seçtiğiniz kiler malzemeleri, favori
                   tarifleriniz ve alışveriş listeniz yalnızca cihazınızın yerel hafızasında
                   saklanır; hiçbir kişisel veriniz toplanmaz, takip edilmez ve dış sunuculara
-                  aktarılmaz. Sesli okuma asistanı modülünde MIT Lisanslı{' '}
-                  <code>ErenBekman/speech-text-voice</code> açık kaynak mimarisinden
-                  yararlanılmıştır.
+                  aktarılmaz. Doğal Türkçe sesli okuma asistanında MIT Lisanslı{' '}
+                  <code>@mintplex-labs/piper-tts-web</code> (Rhasspy Piper VITS nöral Türkçe
+                  sesleri) açık kaynak motorundan yararlanılmıştır.
                 </p>
               </div>
             </div>
@@ -1543,20 +1547,13 @@ export function App() {
                 </div>
 
                 <label className="cookware-label">Kategori & Pişirme Süresi (dk)</label>
-                <div className="recipes-filter-toolbar mt-2">
+                <div className="custom-recipe-meta-grid mt-2">
                   <select
                     value={newRecipeCategory}
                     onChange={(e) =>
                       setNewRecipeCategory(e.target.value as Exclude<RecipeCategory, 'tumu'>)
                     }
-                    style={{
-                      flex: 1,
-                      padding: '11px 12px',
-                      borderRadius: '12px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '0.88rem',
-                      background: '#f8fafc',
-                    }}
+                    className="custom-recipe-select"
                   >
                     <option value="corba">🥣 Çorba</option>
                     <option value="et_tavuk">🍖 Et & Tavuk</option>
@@ -1573,13 +1570,8 @@ export function App() {
                     max="240"
                     value={newRecipePrep}
                     onChange={(e) => setNewRecipePrep(e.target.value)}
-                    placeholder="Hazırlık"
-                    style={{
-                      width: '80px',
-                      padding: '11px 10px',
-                      borderRadius: '12px',
-                      border: '1.5px solid #cbd5e1',
-                    }}
+                    placeholder="Hazırlık (dk)"
+                    className="custom-recipe-time-input"
                   />
                   <input
                     type="number"
@@ -1587,13 +1579,8 @@ export function App() {
                     max="240"
                     value={newRecipeCook}
                     onChange={(e) => setNewRecipeCook(e.target.value)}
-                    placeholder="Pişirme"
-                    style={{
-                      width: '80px',
-                      padding: '11px 10px',
-                      borderRadius: '12px',
-                      border: '1.5px solid #cbd5e1',
-                    }}
+                    placeholder="Pişirme (dk)"
+                    className="custom-recipe-time-input"
                   />
                 </div>
 

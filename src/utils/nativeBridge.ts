@@ -87,3 +87,7 @@ export function stopSpeakNativeIos(): boolean {
 export function requestNativeTurkishVoices(): boolean {
   return postNativeMessage({ action: 'listTurkishVoices' });
 }
+
+export function prepareNativeAudioSession(): boolean {
+  return postNativeMessage({ action: 'prepareAudioPlayback' });
+}

@@ -70,6 +70,12 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler,
                 AudioServicesPlaySystemSound(1005)
             }
 
+        case "prepareAudioPlayback":
+            DispatchQueue.main.async {
+                try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+                try? AVAudioSession.sharedInstance().setActive(true)
+            }
+
         case "speakText":
             let text = (body["text"] as? String) ?? ""
             let rate = (body["rate"] as? Double) ?? 1.0
@@ -117,10 +123,14 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler,
         }
 
         let utterance = AVSpeechUtterance(string: text)
-        let trVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.lowercased().hasPrefix("tr") }
+        let trVoices = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.lowercased().hasPrefix("tr") }
+            .sorted { $0.quality.rawValue > $1.quality.rawValue }
         if let preferredName = voiceName, !preferredName.isEmpty,
            let matched = trVoices.first(where: { $0.name == preferredName }) {
             utterance.voice = matched
+        } else if let bestQualityVoice = trVoices.first(where: { $0.quality.rawValue >= AVSpeechSynthesisVoiceQuality.enhanced.rawValue }) {
+            utterance.voice = bestQualityVoice
         } else if let yelda = trVoices.first(where: { $0.name.lowercased().contains("yelda") }) {
             utterance.voice = yelda
         } else if let firstTr = trVoices.first {
