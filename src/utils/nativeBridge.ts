@@ -91,3 +91,20 @@ export function requestNativeTurkishVoices(): boolean {
 export function prepareNativeAudioSession(): boolean {
   return postNativeMessage({ action: 'prepareAudioPlayback' });
 }
+
+export function playWavAudioNativeIos(
+  base64: string,
+  rate: number,
+  token: number
+): boolean {
+  return postNativeMessage({
+    action: 'playWavBase64',
+    base64,
+    rate,
+    token,
+  });
+}
+
+export function stopWavAudioNativeIos(): boolean {
+  return postNativeMessage({ action: 'stopWavAudio' });
+}

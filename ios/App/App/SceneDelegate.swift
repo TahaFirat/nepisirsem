@@ -5,13 +5,15 @@ import UserNotifications
 import AudioToolbox
 import AVFoundation
 
-class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler, AVSpeechSynthesizerDelegate {
+class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
 
     private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
     private let mediumHaptic = UIImpactFeedbackGenerator(style: .medium)
     private let notificationHaptic = UINotificationFeedbackGenerator()
     private let speechSynthesizer = AVSpeechSynthesizer()
+    private var audioPlayer: AVAudioPlayer?
     private var activeSpeechSessionToken: Int = 0
+    private var activeWavSessionToken: Int = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -74,6 +76,21 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler,
             DispatchQueue.main.async {
                 try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
                 try? AVAudioSession.sharedInstance().setActive(true)
+            }
+
+        case "playWavBase64":
+            let b64 = (body["base64"] as? String) ?? ""
+            let rate = (body["rate"] as? Double) ?? 1.0
+            let token = (body["token"] as? Int) ?? 0
+            DispatchQueue.main.async {
+                self.playWavNative(base64: b64, rateMultiplier: rate, token: token)
+            }
+
+        case "stopWavAudio":
+            DispatchQueue.main.async {
+                self.activeWavSessionToken += 1
+                self.audioPlayer?.stop()
+                self.audioPlayer = nil
             }
 
         case "speakText":
@@ -158,6 +175,44 @@ class NePisirsemViewController: CAPBridgeViewController, WKScriptMessageHandler,
         let token = activeSpeechSessionToken
         DispatchQueue.main.async {
             self.webView?.evaluateJavaScript("window.__nepisirsemOnSpeechEnd?.(\(token));", completionHandler: nil)
+        }
+    }
+
+    private func playWavNative(base64: String, rateMultiplier: Double, token: Int) {
+        activeWavSessionToken = token
+        audioPlayer?.stop()
+        audioPlayer = nil
+
+        guard let wavData = Data(base64Encoded: base64) else {
+            DispatchQueue.main.async {
+                self.webView?.evaluateJavaScript("window.__nepisirsemOnWavError?.(\(token));", completionHandler: nil)
+            }
+            return
+        }
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+
+            let player = try AVAudioPlayer(data: wavData)
+            player.delegate = self
+            player.enableRate = true
+            player.rate = Float(min(max(rateMultiplier, 0.75), 1.4))
+            player.volume = 1.0
+            player.prepareToPlay()
+            player.play()
+            self.audioPlayer = player
+        } catch {
+            DispatchQueue.main.async {
+                self.webView?.evaluateJavaScript("window.__nepisirsemOnWavError?.(\(token));", completionHandler: nil)
+            }
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        let token = activeWavSessionToken
+        DispatchQueue.main.async {
+            self.webView?.evaluateJavaScript("window.__nepisirsemOnWavEnd?.(\(token));", completionHandler: nil)
         }
     }
 

@@ -44,6 +44,7 @@ import {
   TURKISH_VOICE_OPTIONS,
   unlockAudioForPlayback,
   speakStepNatural,
+  prefetchNextStepVoice,
   stopAllSpeech,
 } from '../utils/speechAssistant';
 import type { NeuralVoiceOptionId } from '../utils/speechAssistant';
@@ -84,7 +85,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   const [speakingStepIdx, setSpeakingStepIdx] = useState<number | null>(null);
   const [spokenRange, setSpokenRange] = useState<{ start: number; length: number } | null>(null);
   const [speechRate, setSpeechRate] = useState<number>(1.0);
-  const [selectedVoice, setSelectedVoice] = useState<NeuralVoiceOptionId>('tr_TR-dfki-medium');
+  const [selectedVoice, setSelectedVoice] = useState<NeuralVoiceOptionId>('female');
   const [speechStatusText, setSpeechStatusText] = useState<string | null>(null);
   const [modelDownloadPercent, setModelDownloadPercent] = useState<number | null>(null);
 
@@ -250,7 +251,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
       text: textToSpeak,
       rate: activeRate,
       voiceId: activeVoice,
-      onStatusChange: (statusText) => setSpeechStatusText(statusText),
+      onStatusChange: (statusText) => {
+        setSpeechStatusText(statusText);
+        if (statusText?.includes('Doğal AI') && stepIdx + 1 < recipe.steps.length) {
+          const nextStep = recipe.steps[stepIdx + 1];
+          prefetchNextStepVoice(activeVoice, `${nextStep.title}. ${nextStep.instruction}`);
+        }
+      },
       onDownloadProgress: (pct) => setModelDownloadPercent(pct),
       onWordBoundary: (charIndex, charLength) => {
         const offsetInInstruction = charIndex - prefix.length;
