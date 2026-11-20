@@ -658,14 +658,20 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const COMPILED_CITY_RULES: Array<{ label: string; res: RegExp[] }> = CITY_INFERENCE_RULES.map((rule) => ({
+  label: rule.label,
+  res: rule.keywords.map(
+    (kw) => new RegExp(`(^|\\s)${escapeRegex(kw)}(\\s|$|sı|si|su|sü|lı|li|lu|lü|ı|i|u|ü)`, 'i')
+  ),
+}));
+
 function inferTurkishCityLabel(title: string, currentLabel?: string): string {
   if (currentLabel && currentLabel !== '🇹🇷 Türk Mutfağı' && !currentLabel.startsWith('🌍')) {
     return currentLabel;
   }
   const normalizedTitle = normalizeTurkishKey(title);
-  for (const rule of CITY_INFERENCE_RULES) {
-    for (const kw of rule.keywords) {
-      const re = new RegExp(`(^|\\s)${escapeRegex(kw)}(\\s|$|sı|si|su|sü|lı|li|lu|lü|ı|i|u|ü)`, 'i');
+  for (const rule of COMPILED_CITY_RULES) {
+    for (const re of rule.res) {
       if (re.test(normalizedTitle)) {
         return rule.label;
       }
@@ -846,4 +852,154 @@ export function getFullRecipeArchive(): Recipe[] {
     ...convertedTurkish,
   ];
   return cachedFullArchive;
+}
+
+// ================= GENİŞLETİLMİŞ TÜRK TARİF ARŞİVİ (public/data/recipes-tr.json) =================
+// Kaynak: açık lisanslı veri setleri (104bit/turkish-recipe-dataset — MIT,
+// mmkocak/turkish-recipes-175K — Apache-2.0). Build betiği: scripts/build_recipe_archive.py
+
+type CompactIngredient = [string, number, RecipeIngredient['unit'], string?];
+interface CompactRecipe {
+  id: string;
+  t: string;
+  c: Exclude<RecipeCategory, 'tumu'>;
+  s: number;
+  p: number;
+  k: number;
+  i: CompactIngredient[];
+  st: string[];
+}
+
+const CATEGORY_TIPS: Record<Exclude<RecipeCategory, 'tumu'>, [string, string]> = {
+  corba: [
+    'Çorbayı kısık ateşte kaynatın ve tuzunu en sonda ayarlayın; terbiyeli çorbalarda terbiyeyi ılıştırarak ekleyin.',
+    'Yanında limon, kıtır ekmek ve tereyağında kızdırılmış pul biber ile servis edin.',
+  ],
+  et_tavuk: [
+    'Et veya tavuğu oda sıcaklığında, kızgın tencerede mühürleyin; suyunu salıp çekmeden diğer malzemeleri eklemeyin.',
+    'Pirinç veya bulgur pilavı, cacık ve mevsim salatasıyla servis edebilirsiniz.',
+  ],
+  sebze_zeytinyagli: [
+    'Zeytinyağlıları kısık ateşte kendi suyuyla pişirin ve tenceresinde ılımaya bırakın; ertesi gün daha lezzetli olur.',
+    'Oda sıcaklığında, yanında yoğurt ve taze ekmekle servis edin.',
+  ],
+  bakliyat_pilav: [
+    'Pirinci veya bulguru suyu berraklaşana kadar yıkayın; piştikten sonra kapağın altına kağıt havlu koyarak demlendirin.',
+    'Etli ve sebzeli yemeklerin yanında, cacık veya turşu ile servis edin.',
+  ],
+  hamur_borek: [
+    'Hamur malzemelerinin oda sıcaklığında olması hamurun daha iyi kabarmasını sağlar; fırını önceden ısıtın.',
+    'Sıcak ya da ılık olarak çay veya ayran eşliğinde servis edin.',
+  ],
+  kahvalti: [
+    'Kahvaltılıkları servis etmeden hemen önce hazırlayın; yumurtalı tarifleri kısık ateşte pişirin.',
+    'Taze ekmek, zeytin, peynir ve demli çay ile servis edin.',
+  ],
+  salata_meze: [
+    'Yeşillikleri iyice kurulayın; sosu servis etmeden hemen önce ekleyin ki salata sulanmasın.',
+    'Ana yemeklerin yanında veya meze tabağında soğuk olarak servis edin.',
+  ],
+  tatli: [
+    'Şerbetli tatlılarda "biri sıcak biri soğuk" kuralına uyun; sütlü tatlıları sürekli karıştırarak pişirin.',
+    'Dinlendirdikten sonra ceviz, fındık, fıstık veya tarçın ile süsleyerek servis edin.',
+  ],
+  dunya_mutfagi: [
+    'Malzemeleri önceden hazırlayıp tezgaha dizin; pişirme süresine dikkat edin.',
+    'Sıcak olarak servis edin.',
+  ],
+};
+
+function detectStepTimer(instruction: string): number | undefined {
+  const lower = instruction.toLocaleLowerCase('tr-TR');
+  const hour = lower.match(/(\d{1,2})\s*saat/);
+  if (hour && !/saat\s*(boyunca\s*)?(dinlen|bekle|buzdolab|mayala)/.test(lower) && Number(hour[1]) <= 3) {
+    return Number(hour[1]) * 60;
+  }
+  const range = lower.match(/(\d{1,3})\s*(?:-|–|ile)\s*(\d{1,3})\s*(dk|dakika)/);
+  if (range) return Math.min(240, Math.round((Number(range[1]) + Number(range[2])) / 2));
+  const single = lower.match(/(\d{1,3})\s*(dk|dakika)/);
+  if (single) return Math.min(240, Number(single[1]));
+  return undefined;
+}
+
+export function expandCompactRecipes(list: CompactRecipe[]): Recipe[] {
+  const out: Recipe[] = [];
+  for (const r of list) {
+    if (!r || !r.t || !Array.isArray(r.i) || !Array.isArray(r.st) || r.st.length === 0) continue;
+    const visual = resolveDishVisualTheme(r.t, r.c);
+    const [tip, serving] = CATEGORY_TIPS[r.c] || CATEGORY_TIPS.et_tavuk;
+    out.push({
+      id: r.id,
+      title: r.t,
+      subtitle: `${visual.patternLabel} • ${visual.cookwareHint}`,
+      category: r.c,
+      cuisineOrigin: 'turkish',
+      countryLabel: inferTurkishCityLabel(r.t, '🇹🇷 Türk Mutfağı'),
+      emoji: visual.iconEmoji || CATEGORY_EMOJI[r.c] || '🍲',
+      image: '',
+      prepTime: r.p || 15,
+      cookTime: r.k || 0,
+      difficulty: r.st.length > 9 ? 'Orta' : 'Kolay',
+      caloriesPerServing: r.c === 'tatli' ? 320 : r.c === 'et_tavuk' ? 380 : r.c === 'salata_meze' ? 160 : 260,
+      baseServings: r.s || 4,
+      chefTip: tip,
+      servingSuggestion: serving,
+      ingredients: r.i.map(([name, amount, unit, note]) => ({
+        name,
+        amount: Number(amount) || 1,
+        unit,
+        note: note || inferIngredientPrepNote(name, r.c),
+      })),
+      steps: r.st.map((instruction, idx) => ({
+        title: `${idx + 1}. Adım`,
+        instruction,
+        timerMinutes: detectStepTimer(instruction),
+      })),
+    });
+  }
+  return out;
+}
+
+let extendedArchivePromise: Promise<Recipe[]> | null = null;
+
+/**
+ * Genişletilmiş Türk tarif arşivini uygulama paketinden (çevrimdışı) kategori kategori yükler.
+ * Her parça yüklendikçe onChunk ile arayüze iletilir; ana iş parçacığı bloklanmaz.
+ */
+export function loadExtendedTurkishArchive(onChunk?: (soFar: Recipe[]) => void): Promise<Recipe[]> {
+  if (!extendedArchivePromise) {
+    const base = `${import.meta.env.BASE_URL}data/`;
+    extendedArchivePromise = (async () => {
+      const all: Recipe[] = [];
+      try {
+        const manifestRes = await fetch(`${base}recipes-tr-manifest.json`);
+        const manifest: Array<{ file: string }> = manifestRes.ok ? await manifestRes.json() : [];
+        for (let idx = 0; idx < manifest.length; idx++) {
+          const entry = manifest[idx];
+          try {
+            const res = await fetch(`${base}${entry.file}`);
+            if (!res.ok) continue;
+            const json: CompactRecipe[] = await res.json();
+            all.push(...expandCompactRecipes(Array.isArray(json) ? json : []));
+            if (idx === 0) {
+              onChunk?.(all.slice());
+            }
+            // Arayüze nefes aldır (kaydırma ve dokunmalar takılmasın)
+            await new Promise((r) => setTimeout(r, 20));
+          } catch {
+            // tek parça bozuksa diğerlerine devam et
+          }
+        }
+        if (all.length > 0) {
+          onChunk?.(all.slice());
+        }
+      } catch {
+        extendedArchivePromise = null;
+      }
+      return all;
+    })();
+  } else if (onChunk) {
+    extendedArchivePromise.then((list) => onChunk(list));
+  }
+  return extendedArchivePromise;
 }

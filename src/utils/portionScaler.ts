@@ -173,7 +173,8 @@ export function scaleRecipeIngredients(
       }
     }
 
-    const formattedMeasure = formatTurkishFraction(rawScaled, ing.unit);
+    const formattedMeasure =
+      ing.note === 'Göz kararı' ? 'Göz kararı' : formatTurkishFraction(rawScaled, ing.unit);
     const metricEquivalent = getMetricHint(rawScaled, ing.unit, ing.name);
 
     return {

@@ -16,6 +16,7 @@
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
+    "@capacitor/preferences": "^8.0.1",
     "@mintplex-labs/piper-tts-web": "^1.0.5",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.57.0",

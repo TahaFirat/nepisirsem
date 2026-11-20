@@ -192,14 +192,18 @@ const EXACT_DISH_PHOTO_QUERIES: Array<[RegExp, string]> = [
   [/mantı/i, 'kayseri mantısı yoğurtlu soslu'],
 ];
 
+const FILLER_REGEX = new RegExp(
+  `(?:^|\\s)(?:${FILLER_PHRASES.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?=\\s|$)`,
+  'gi'
+);
+
 function stripDishMarketingNoise(title: string): string {
   let clean = title
     .replace(/\(([^)]+)\)/g, ' ')
     .replace(/[&/•–—-]+/g, ' ');
 
-  for (const phrase of FILLER_PHRASES) {
-    clean = clean.replace(new RegExp(phrase, 'gi'), ' ');
-  }
+  // Arka arkaya gelebilecek sıfat öbeklerini temizle
+  clean = clean.replace(FILLER_REGEX, ' ').replace(FILLER_REGEX, ' ');
 
   return clean.replace(/\s+/g, ' ').trim() || title;
 }
@@ -211,27 +215,39 @@ export function getOriginalDishPhotoUrl(
   title: string,
   category?: Exclude<RecipeCategory, 'tumu'>
 ): string {
-  for (const [pattern, exactQuery] of EXACT_DISH_PHOTO_QUERIES) {
-    if (pattern.test(title)) {
-      return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(exactQuery)}&w=640&h=420&c=7&rs=1&p=0`;
+  const baseName = stripDishMarketingNoise(title);
+  const lower = baseName.toLocaleLowerCase('tr-TR');
+  const wordCount = lower.split(/\s+/).filter(Boolean).length;
+
+  // Hazır kalıp sorgular sadece yemeğin kendisi için (ör. "Mantı"), varyasyonlar için değil
+  // (ör. "Mantı Çorbası" kendi adıyla aranır; başka yemeğin fotoğrafı gelmez)
+  if (wordCount <= 3) {
+    for (const [pattern, exactQuery] of EXACT_DISH_PHOTO_QUERIES) {
+      if (category && category !== 'tatli' && exactQuery.includes('tatlı')) continue;
+      if (pattern.test(lower) && exactQuery.split(' ').length >= wordCount) {
+        const keyWords = exactQuery.toLocaleLowerCase('tr-TR').split(/\s+/);
+        const coreWords = lower.split(/\s+/).filter((w) => w.length >= 2);
+        if (
+          coreWords.every((w) => {
+            const stem = w.length <= 3 ? w : w.slice(0, w.length - 2);
+            return keyWords.some((kw) => kw.startsWith(stem));
+          })
+        ) {
+          return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(exactQuery)}&w=640&h=420&c=7&rs=1&p=0`;
+        }
+      }
     }
   }
 
-  const baseName = stripDishMarketingNoise(title);
-  const lower = baseName.toLocaleLowerCase('tr-TR');
-
-  let suffix = '';
-  if (category === 'tatli' && !/(tatlı|baklava|pasta|kek|helva|sütlaç|muhallebi|künefe|kurabiye|kadayıf|komposto|şerbet)/.test(lower)) {
-    suffix = 'tatlısı';
+  let suffix = 'tarifi';
+  if (category === 'tatli' && !/(tatlı|baklava|pasta|kek|helva|sütlaç|muhallebi|künefe|kurabiye|kadayıf|komposto|şerbet|lokum|revani|reçel)/.test(lower)) {
+    suffix = 'tatlısı tarifi';
   } else if (category === 'corba' && !/çorba/.test(lower)) {
-    suffix = 'çorbası';
-  } else if (category === 'kahvalti' && !/(omlet|menemen|reçel|marmelat|yumurta|krep|pankek|tost)/.test(lower)) {
-    suffix = 'kahvaltılık';
-  } else if (!/(yemeği|kebabı|köfte|pilav|makarna|börek|pide|salata|meze|reçel|turşu)/.test(lower)) {
-    suffix = 'yemek tarifi';
+    suffix = 'çorbası tarifi';
   }
 
-  const query = suffix ? `${baseName} ${suffix}` : `${baseName} tarifi`;
+  // Yemeğin TAM adıyla arama (kısaltma yok) → her tarif kendi fotoğrafını alır
+  const query = `${baseName} ${suffix}`;
   return `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query)}&w=640&h=420&c=7&rs=1&p=0`;
 }
 
@@ -240,19 +256,8 @@ export function getFallbackDishPhotoUrl(
   category?: Exclude<RecipeCategory, 'tumu'>
 ): string {
   const cleanTitle = stripDishMarketingNoise(title);
-  const coreWords = cleanTitle
-    .split(/\s+/)
-    .slice(0, 3)
-    .join(' ');
-
-  const catWord =
-    category === 'tatli'
-      ? 'tatlı'
-      : category === 'corba'
-      ? 'çorba'
-      : 'yemek';
-
-  return `https://tse3.mm.bing.net/th?q=${encodeURIComponent(`${coreWords || title} ${catWord}`)}&w=640&h=420&c=7&rs=1&p=0`;
+  const catWord = category === 'tatli' ? 'tatlısı' : category === 'corba' ? 'çorbası' : 'yemeği';
+  return `https://tse3.mm.bing.net/th?q=${encodeURIComponent(`"${cleanTitle}" ${catWord}`)}&w=640&h=420&c=7&rs=1&p=0`;
 }
 
 /**

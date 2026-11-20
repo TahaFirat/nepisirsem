@@ -31,7 +31,7 @@ import {
   canonicalizeIngredientName,
 } from './data/ingredients';
 import { RECIPE_CATEGORIES } from './data/recipes';
-import { getFullRecipeArchive } from './data/legacyRecipesBridge';
+import { getFullRecipeArchive, loadExtendedTurkishArchive } from './data/legacyRecipesBridge';
 import type {
   CuisineOrigin,
   IngredientCategoryId,
@@ -43,7 +43,12 @@ import { matchRecipesWithPantry, expandPantrySet } from './utils/recipeMatcher';
 import { RecipeDetailModal } from './components/RecipeDetailModal';
 import { DishVisualHeader } from './components/DishVisualHeader';
 import { triggerNativeHaptic } from './utils/nativeBridge';
+import { saveJson, loadJsonSync, restoreFromNative } from './utils/persistentStore';
+import { parseIngredientText } from './utils/ingredientParser';
+import { getIngredientIconUrl, getIngredientIconCredits } from './utils/ingredientIcons';
 import './App.css';
+
+const CUSTOM_RECIPES_KEY = 'nepisirsem_custom_recipes';
 
 interface ShoppingItem {
   id: string;
@@ -140,6 +145,7 @@ const CITY_KEYWORDS = [
 ];
 
 interface IngredientChipProps {
+  id: string;
   name: string;
   emoji: string;
   isSelected: boolean;
@@ -147,15 +153,30 @@ interface IngredientChipProps {
 }
 
 const IngredientChip = React.memo<IngredientChipProps>(
-  ({ name, emoji, isSelected, onToggle }) => {
+  ({ id, name, emoji, isSelected, onToggle }) => {
     const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+    const [iconFailed, setIconFailed] = useState(false);
+    const iconUrl = iconFailed ? null : getIngredientIconUrl(id);
     return (
       <button
         type="button"
         className={`ingredient-chip-btn ${isSelected ? 'selected' : ''}`}
         onClick={() => onToggle(name)}
       >
-        <span className="ing-emoji">{emoji}</span>
+        {iconUrl ? (
+          <img
+            className="ing-icon-img"
+            src={iconUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            width={30}
+            height={30}
+            onError={() => setIconFailed(true)}
+          />
+        ) : (
+          <span className="ing-emoji">{emoji}</span>
+        )}
         <span className="ing-label">{formattedName}</span>
         <span className="ing-check">
           {isSelected ? <Check size={14} strokeWidth={2.6} /> : <Plus size={14} strokeWidth={2.4} />}
@@ -284,17 +305,17 @@ export function App() {
   const [onlyReadyToCook, setOnlyReadyToCook] = useState<boolean>(false);
   const [visibleCount, setVisibleCount] = useState<number>(24);
 
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    const saved = localStorage.getItem('nepisirsem_favs');
-    return saved
-      ? JSON.parse(saved)
-      : ['mercimek-corbasi', 'karniyarik', 'firin-sutlac', 'yoresel-1', 'world-1'];
-  });
+  const [favorites, setFavorites] = useState<string[]>(() =>
+    loadJsonSync<string[]>('nepisirsem_favs', [
+      'mercimek-corbasi',
+      'karniyarik',
+      'firin-sutlac',
+    ])
+  );
 
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
-    const saved = localStorage.getItem('nepisirsem_shopping');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() =>
+    loadJsonSync<ShoppingItem[]>('nepisirsem_shopping', [])
+  );
   const [customShoppingInput, setCustomShoppingInput] = useState<string>('');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [menuSeed, setMenuSeed] = useState<number>(0);
@@ -302,16 +323,11 @@ export function App() {
   const [shoppingCopiedToast, setShoppingCopiedToast] = useState<boolean>(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
   const [isAddRecipeModalOpen, setIsAddRecipeModalOpen] = useState<boolean>(false);
+  const [onlyMyRecipes, setOnlyMyRecipes] = useState<boolean>(false);
+  const [recipeSavedToast, setRecipeSavedToast] = useState<string | null>(null);
   const [customRecipes, setCustomRecipes] = useState<Recipe[]>(() => {
-    const saved = localStorage.getItem('nepisirsem_custom_recipes');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
+    const list = loadJsonSync<Recipe[]>(CUSTOM_RECIPES_KEY, []);
+    return Array.isArray(list) ? list.filter((r) => r && r.id && r.title) : [];
   });
   const [newRecipeTitle, setNewRecipeTitle] = useState<string>('');
   const [newRecipeCategory, setNewRecipeCategory] =
@@ -323,7 +339,30 @@ export function App() {
 
   useEffect(() => {
     setVisibleCount(24);
-  }, [selectedRecipeCat, cuisineFilter, selectedCity, onlyReadyToCook, recipeSearch]);
+  }, [selectedRecipeCat, cuisineFilter, selectedCity, onlyReadyToCook, recipeSearch, onlyMyRecipes]);
+
+  // iOS localStorage silinmişse kullanıcı verilerini native depodan geri yükle
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [natRecipes, natFavs, natShopping, natPantry] = await Promise.all([
+        restoreFromNative<Recipe[]>(CUSTOM_RECIPES_KEY),
+        restoreFromNative<string[]>('nepisirsem_favs'),
+        restoreFromNative<ShoppingItem[]>('nepisirsem_shopping'),
+        restoreFromNative<string[]>(PANTRY_STORAGE_KEY),
+      ]);
+      if (cancelled) return;
+      if (Array.isArray(natRecipes)) setCustomRecipes(natRecipes);
+      if (Array.isArray(natFavs)) setFavorites(natFavs);
+      if (Array.isArray(natShopping)) setShoppingList(natShopping);
+      if (Array.isArray(natPantry)) {
+        setPantry(Array.from(new Set(natPantry.map((i) => canonicalizeIngredientName(String(i))))));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // O(1) hızlı erişim kümeleri (%100 Kilerim ile birebir senkron)
   const pantrySet = useMemo(() => expandPantrySet(pantry), [pantry]);
@@ -339,7 +378,7 @@ export function App() {
         ? normalizedPrev.filter((item) => item !== canonical)
         : [...normalizedPrev, canonical];
       const uniqueNext = Array.from(new Set(next));
-      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(uniqueNext));
+      saveJson(PANTRY_STORAGE_KEY, uniqueNext);
       return uniqueNext;
     });
   }, []);
@@ -355,7 +394,7 @@ export function App() {
       const updated = isAllIncluded
         ? normalizedPrev.filter((item) => !removeSet.has(item))
         : Array.from(new Set([...normalizedPrev, ...canonicalItems]));
-      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
+      saveJson(PANTRY_STORAGE_KEY, updated);
       return updated;
     });
   }, []);
@@ -385,7 +424,7 @@ export function App() {
       const merged = Array.from(
         new Set([...prev.map((p) => canonicalizeIngredientName(p)), ...visibleNames])
       );
-      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(merged));
+      saveJson(PANTRY_STORAGE_KEY, merged);
       return merged;
     });
   }, [filteredIngredients]);
@@ -394,7 +433,7 @@ export function App() {
     triggerNativeHaptic('medium');
     const empty: string[] = [];
     setPantry(empty);
-    localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(empty));
+    saveJson(PANTRY_STORAGE_KEY, empty);
   }, []);
 
   const toggleFavorite = useCallback((recipeId: string) => {
@@ -402,7 +441,7 @@ export function App() {
       const updated = prev.includes(recipeId)
         ? prev.filter((id) => id !== recipeId)
         : [...prev, recipeId];
-      localStorage.setItem('nepisirsem_favs', JSON.stringify(updated));
+      saveJson('nepisirsem_favs', updated);
       return updated;
     });
   }, []);
@@ -422,7 +461,7 @@ export function App() {
       }));
       setShoppingList((prev) => {
         const updated = [...prev, ...newEntries];
-        localStorage.setItem('nepisirsem_shopping', JSON.stringify(updated));
+        saveJson('nepisirsem_shopping', updated);
         return updated;
       });
     },
@@ -441,7 +480,7 @@ export function App() {
     };
     const updated = [newItem, ...shoppingList];
     setShoppingList(updated);
-    localStorage.setItem('nepisirsem_shopping', JSON.stringify(updated));
+    saveJson('nepisirsem_shopping', updated);
     setCustomShoppingInput('');
   };
 
@@ -450,74 +489,107 @@ export function App() {
       item.id === id ? { ...item, checked: !item.checked } : item
     );
     setShoppingList(updated);
-    localStorage.setItem('nepisirsem_shopping', JSON.stringify(updated));
+    saveJson('nepisirsem_shopping', updated);
   };
 
   const clearShoppingList = () => {
     setShoppingList([]);
-    localStorage.setItem('nepisirsem_shopping', JSON.stringify([]));
+    saveJson('nepisirsem_shopping', []);
   };
 
   const baseArchiveRecipes = useMemo(() => getFullRecipeArchive(), []);
+  const [extendedRecipes, setExtendedRecipes] = useState<Recipe[]>([]);
+  useEffect(() => {
+    let alive = true;
+    // Ana arayüz anında açılsın; büyük Türk tarif arşivi hemen ardından yüklensin
+    const timer = setTimeout(() => {
+      loadExtendedTurkishArchive((soFar) => {
+        if (alive) setExtendedRecipes(soFar);
+      });
+    }, 60);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, []);
   const allArchiveRecipes = useMemo(
-    () => [...customRecipes, ...baseArchiveRecipes],
-    [customRecipes, baseArchiveRecipes]
+    () => [...customRecipes, ...baseArchiveRecipes, ...extendedRecipes],
+    [customRecipes, baseArchiveRecipes, extendedRecipes]
   );
+  const customRecipeIds = useMemo(() => new Set(customRecipes.map((r) => r.id)), [customRecipes]);
 
   const handleCreateCustomRecipe = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRecipeTitle.trim() || !newRecipeIngredientsText.trim()) return;
+    const title = newRecipeTitle.trim();
+    const parsedIngredients = parseIngredientText(newRecipeIngredientsText);
+    if (!title || parsedIngredients.length === 0) return;
     triggerNativeHaptic('success');
 
-    const parsedIngredients = newRecipeIngredientsText
-      .split(/[\n,]+/)
-      .map((s) => canonicalizeIngredientName(s))
-      .filter(Boolean)
-      .map((name) => ({
-        name,
-        amount: 1,
-        unit: 'adet' as const,
-      }));
+    const cookMinutes = Math.min(600, Math.max(5, Number(newRecipeCook) || 25));
+    const prepMinutes = Math.min(600, Math.max(5, Number(newRecipePrep) || 15));
 
     const parsedSteps = (newRecipeStepsText.trim() || 'Malzemeleri hazırlayıp pişirin.')
       .split('\n')
-      .map((s) => s.trim())
+      .map((s) => s.replace(/^\s*\d+[.)-]\s*/, '').trim())
       .filter(Boolean)
-      .map((instruction, i) => ({
-        title: `${i + 1}. Adım`,
-        instruction,
-        timerMinutes: i === 0 ? Math.max(5, Number(newRecipeCook) || 20) : undefined,
-      }));
+      .map((instruction, i) => {
+        const minuteMatch = instruction.match(/(\d{1,3})\s*(dk|dakika)/i);
+        return {
+          title: `${i + 1}. Adım`,
+          instruction,
+          timerMinutes: minuteMatch ? Math.min(240, Number(minuteMatch[1])) : undefined,
+        };
+      });
 
     const created: Recipe = {
       id: `custom-${Date.now()}`,
-      title: newRecipeTitle.trim(),
-      subtitle: 'Kişisel Tarif Defterim (Özel Aile Tarifi)',
+      title,
+      subtitle: 'Kişisel Tarif Defterim',
       category: newRecipeCategory,
       cuisineOrigin: 'turkish',
-      countryLabel: '👩‍🍳 Kendi Tarifim',
+      countryLabel: '📒 Kendi Tarifim',
       emoji: '🍲',
       image: '',
-      prepTime: Math.max(5, Number(newRecipePrep) || 15),
-      cookTime: Math.max(5, Number(newRecipeCook) || 25),
+      prepTime: prepMinutes,
+      cookTime: cookMinutes,
       difficulty: 'Kolay',
       caloriesPerServing: 260,
       baseServings: 4,
-      chefTip: 'Bu tarif kişisel tarif defterinize kaydedilmiştir ve porsiyon hesaplayıcı ile tam uyumludur.',
-      servingSuggestion: 'Sıcak olarak sevdiklerinizle servis edebilirsiniz.',
+      chefTip: 'Bu tarif kişisel tarif defterinize kaydedildi; kiler eşleştirme ve porsiyon hesaplayıcı ile çalışır.',
+      servingSuggestion: 'Sevdiklerinizle afiyetle servis edin.',
       ingredients: parsedIngredients,
       steps: parsedSteps,
     };
 
-    const updated = [created, ...customRecipes];
-    setCustomRecipes(updated);
-    localStorage.setItem('nepisirsem_custom_recipes', JSON.stringify(updated));
+    setCustomRecipes((prev) => {
+      const updated = [created, ...prev];
+      saveJson(CUSTOM_RECIPES_KEY, updated);
+      return updated;
+    });
     setNewRecipeTitle('');
     setNewRecipeIngredientsText('');
     setNewRecipeStepsText('');
     setIsAddRecipeModalOpen(false);
+    // Yeni tarifin görünmesi için filtreleri temizle ve "Tariflerim"i aç
+    setRecipeSearch('');
+    setSelectedRecipeCat('tumu');
+    setSelectedCity('tumu');
+    setCuisineFilter('all');
+    setOnlyReadyToCook(false);
+    setOnlyMyRecipes(true);
     setActiveTab('tarifler');
+    setRecipeSavedToast(`"${title}" tarif defterinize kaydedildi`);
+    setTimeout(() => setRecipeSavedToast(null), 3200);
   };
+
+  const deleteCustomRecipe = useCallback((recipeId: string) => {
+    setCustomRecipes((prev) => {
+      const updated = prev.filter((r) => r.id !== recipeId);
+      saveJson(CUSTOM_RECIPES_KEY, updated);
+      return updated;
+    });
+    setSelectedRecipeId(null);
+  }, []);
 
   const matchedRecipes = useMemo(() => {
     return matchRecipesWithPantry(allArchiveRecipes, pantry);
@@ -546,84 +618,73 @@ export function App() {
     [matchedRecipes]
   );
 
-  // Birebir İl Eşleştirici (Türkçe karakter uyumlu + kesin kelime eşleşmesi)
-  const matchesStrictCity = (
-    countryLabel: string | undefined,
-    title: string,
-    cityId: string
-  ): boolean => {
-    if (cityId === 'tumu') return true;
-    const label = normalizeTurkishText(countryLabel || '');
-    const t = normalizeTurkishText(title);
+  // Birebir İl Eşleştirici (Türkçe karakter uyumlu + kesin kelime eşleşmesi, önceden derlenmiş)
+  const cityMatcher = useMemo(() => {
+    if (selectedCity === 'tumu') return null;
+    const groups: Record<string, string[]> = {
+      Trabzon: ['trabzon', 'rize', 'karadeniz', 'hamsiköy', 'akçaabat', 'ordu', 'giresun', 'artvin'],
+      İzmir: ['izmir', 'aydın', 'muğla', 'bodrum', 'ege', 'tire', 'manisa'],
+      Erzurum: ['erzurum', 'van', 'kars', 'ağrı'],
+      Adana: ['adana', 'mersin', 'çukurova'],
+    };
+    const keywords = groups[selectedCity] || [normalizeTurkishText(selectedCity)];
+    const regexes = keywords.map(
+      (kw) => new RegExp(`(^|[\\s(/])${kw}(?=$|[\\s)/,]|sı|si|su|sü|lı|li|lu|lü|ı|i)`, 'i')
+    );
+    return (label: string, title: string) =>
+      keywords.some((kw) => label.includes(kw)) || regexes.some((re) => re.test(title));
+  }, [selectedCity]);
 
-    const hasCityKeyword = (kwList: string[]) =>
-      kwList.some((kw) => {
-        if (label.includes(kw)) return true;
-        const re = new RegExp(`(^|[\\s(/])${kw}(?=$|[\\s)/,]|sı|si|su|sü|lı|li|lu|lü|ı|i)`, 'i');
-        return re.test(t);
+  // Her tarif için normalize edilmiş arama metinlerini bir kez hesapla
+  const searchIndex = useMemo(() => {
+    const map = new WeakMap<Recipe, { title: string; label: string; ings: string }>();
+    for (const r of allArchiveRecipes) {
+      map.set(r, {
+        title: normalizeTurkishText(r.title),
+        label: normalizeTurkishText(r.countryLabel || ''),
+        ings: r.ingredients.map((i) => normalizeTurkishText(i.name)).join('|'),
       });
+    }
+    return map;
+  }, [allArchiveRecipes]);
 
-    if (cityId === 'Trabzon') {
-      return hasCityKeyword(['trabzon', 'rize', 'karadeniz', 'hamsiköy', 'akçaabat', 'ordu', 'giresun', 'artvin']);
-    }
-    if (cityId === 'İzmir') {
-      return hasCityKeyword(['izmir', 'aydın', 'muğla', 'bodrum', 'ege', 'tire', 'manisa']);
-    }
-    if (cityId === 'Erzurum') {
-      return hasCityKeyword(['erzurum', 'van', 'kars', 'ağrı']);
-    }
-    if (cityId === 'Adana') {
-      return hasCityKeyword(['adana', 'mersin', 'çukurova']);
-    }
-
-    const target = normalizeTurkishText(cityId);
-    return hasCityKeyword([target]);
-  };
-
-  // Filtrelenmiş tarifler
+  // Filtrelenmiş tarifler (kendi tarifleriniz her zaman en üstte)
   const filteredRecipes = useMemo(() => {
-    return matchedRecipes.filter((m) => {
-      if (cuisineFilter === 'turkish' && m.recipe.cuisineOrigin === 'world') {
-        return false;
+    const q = normalizeTurkishText(recipeSearch);
+    const isCityQuery = q ? CITY_KEYWORDS.some((ck) => q === ck || q.includes(ck)) : false;
+    const list = matchedRecipes.filter((m) => {
+      const isCustom = customRecipeIds.has(m.recipe.id);
+      if (onlyMyRecipes && !isCustom) return false;
+      if (cuisineFilter === 'turkish' && m.recipe.cuisineOrigin === 'world') return false;
+      if (cuisineFilter === 'world' && m.recipe.cuisineOrigin !== 'world') return false;
+      const idx = searchIndex.get(m.recipe);
+      if (cuisineFilter !== 'world' && cityMatcher && !isCustom) {
+        if (!idx || !cityMatcher(idx.label, idx.title)) return false;
       }
-      if (cuisineFilter === 'world' && m.recipe.cuisineOrigin !== 'world') {
-        return false;
-      }
-      if (cuisineFilter !== 'world' && selectedCity !== 'tumu') {
-        if (!matchesStrictCity(m.recipe.countryLabel, m.recipe.title, selectedCity)) {
-          return false;
-        }
-      }
-      if (selectedRecipeCat !== 'tumu' && m.recipe.category !== selectedRecipeCat) {
-        return false;
-      }
-      if (onlyReadyToCook && !m.canCookImmediately) {
-        return false;
-      }
-      if (recipeSearch.trim()) {
-        const q = normalizeTurkishText(recipeSearch);
-        const inTitle = normalizeTurkishText(m.recipe.title).includes(q);
-        const inCountry = normalizeTurkishText(m.recipe.countryLabel || '').includes(q);
-
-        const isCityQuery = CITY_KEYWORDS.some((ck) => q === ck || q.includes(ck));
-        if (isCityQuery) {
-          return inTitle || inCountry;
-        }
-
-        const inIng = m.recipe.ingredients.some((i) =>
-          normalizeTurkishText(i.name).includes(q)
-        );
-        return inTitle || inCountry || inIng;
+      if (selectedRecipeCat !== 'tumu' && m.recipe.category !== selectedRecipeCat) return false;
+      if (onlyReadyToCook && !m.canCookImmediately) return false;
+      if (q) {
+        if (!idx) return false;
+        const inTitle = idx.title.includes(q);
+        const inCountry = idx.label.includes(q);
+        if (isCityQuery) return inTitle || inCountry;
+        return inTitle || inCountry || idx.ings.includes(q);
       }
       return true;
     });
+    if (customRecipeIds.size === 0) return list;
+    const mine = list.filter((m) => customRecipeIds.has(m.recipe.id));
+    return mine.length ? [...mine, ...list.filter((m) => !customRecipeIds.has(m.recipe.id))] : list;
   }, [
     matchedRecipes,
     cuisineFilter,
-    selectedCity,
+    cityMatcher,
     selectedRecipeCat,
     onlyReadyToCook,
     recipeSearch,
+    onlyMyRecipes,
+    customRecipeIds,
+    searchIndex,
   ]);
 
   // Günün Akıllı & Uyumlu 4 Çeşit Menüsü
@@ -995,6 +1056,7 @@ export function App() {
               {filteredIngredients.map((item) => (
                 <IngredientChip
                   key={item.id}
+                  id={item.id}
                   name={item.name}
                   emoji={item.emoji}
                   isSelected={pantrySet.has(item.name.toLowerCase())}
@@ -1254,6 +1316,19 @@ export function App() {
 
                   <button
                     type="button"
+                    className={`ready-filter-toggle my-recipes-toggle ${onlyMyRecipes ? 'active' : ''}`}
+                    onClick={() => {
+                      triggerNativeHaptic('light');
+                      setOnlyMyRecipes(!onlyMyRecipes);
+                    }}
+                    title="Kendi kaydettiğiniz tarifler"
+                  >
+                    <BookOpen size={16} />
+                    <span>Tariflerim ({customRecipes.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
                     className="add-custom-recipe-btn"
                     onClick={() => {
                       triggerNativeHaptic('light');
@@ -1266,6 +1341,21 @@ export function App() {
                   </button>
                 </div>
               </div>
+
+              {recipeSavedToast && (
+                <div className="cart-success-toast">
+                  <CheckCircle2 size={16} />
+                  <span>{recipeSavedToast}</span>
+                </div>
+              )}
+
+              {onlyMyRecipes && customRecipes.length === 0 && (
+                <div className="empty-state-box">
+                  <BookOpen size={40} className="text-rose" />
+                  <h3>Tarif defteriniz boş</h3>
+                  <p>"Tarif Ekle" ile kendi aile tariflerinizi kaydedin; burada her zaman saklanır.</p>
+                </div>
+              )}
 
               {/* YEMEK KATEGORİLERİ */}
               <div className="category-pills-row">
@@ -1501,9 +1591,31 @@ export function App() {
                   tarifleriniz ve alışveriş listeniz yalnızca cihazınızın yerel hafızasında
                   saklanır; hiçbir kişisel veriniz toplanmaz, takip edilmez ve dış sunuculara
                   aktarılmaz. Doğal Türkçe sesli okuma asistanında MIT Lisanslı{' '}
-                  <code>@mintplex-labs/piper-tts-web</code> (Rhasspy Piper VITS nöral Türkçe
-                  sesleri) açık kaynak motorundan yararlanılmıştır.
+                  <code>@mintplex-labs/piper-tts-web</code> açık kaynak motoru kullanılır.
                 </p>
+              </div>
+
+              <div className="modal-section">
+                <h3 className="section-heading mb-3">
+                  <BookOpen size={19} className="text-rose" />
+                  <span>Açık Kaynak Veri & Görsel Kaynakları</span>
+                </h3>
+                <p className="step-instruction">
+                  Genişletilmiş Türk tarif arşivi açık lisanslı veri setlerinden derlenmiş ve
+                  düzenlenmiştir: <code>104bit/turkish-recipe-dataset</code> (MIT) ve{' '}
+                  <code>mmkocak/turkish-recipes-175K</code> (Apache-2.0). Kiler malzeme ikonları
+                  Wikimedia Commons üzerindeki serbest lisanslı fotoğraflardan üretilmiştir:
+                </p>
+                <details className="credits-details">
+                  <summary>Malzeme görseli lisanslarını göster ({getIngredientIconCredits().length})</summary>
+                  <ul className="credits-list">
+                    {getIngredientIconCredits().map((c) => (
+                      <li key={c.id}>
+                        <strong>{c.id}</strong> — {c.artist || 'Wikimedia Commons'} ({c.license})
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </div>
             </div>
           </div>
@@ -1584,33 +1696,23 @@ export function App() {
                   />
                 </div>
 
-                <label className="cookware-label">Malzemeler (Virgül ile ayırın)</label>
-                <div className="search-input-box mt-2">
-                  <input
-                    type="text"
-                    required
-                    style={{ paddingLeft: '14px' }}
-                    value={newRecipeIngredientsText}
-                    onChange={(e) => setNewRecipeIngredientsText(e.target.value)}
-                    placeholder="Örn: patlıcan, domates, yeşil biber, sarımsak, zeytinyağı"
-                  />
-                </div>
-
-                <label className="cookware-label">Hazırlanış Adımları (Her satıra 1 adım)</label>
+                <label className="cookware-label">Malzemeler (her satıra bir malzeme, ölçüsüyle)</label>
                 <textarea
-                  rows={3}
+                  rows={5}
+                  required
+                  className="custom-recipe-textarea"
+                  value={newRecipeIngredientsText}
+                  onChange={(e) => setNewRecipeIngredientsText(e.target.value)}
+                  placeholder={'Örn:\n2 adet patlıcan\n250 gr kıyma\n1 yemek kaşığı salça\nyarım demet maydanoz'}
+                />
+
+                <label className="cookware-label">Hazırlanış Adımları (her satıra 1 adım)</label>
+                <textarea
+                  rows={5}
+                  className="custom-recipe-textarea"
                   value={newRecipeStepsText}
                   onChange={(e) => setNewRecipeStepsText(e.target.value)}
-                  placeholder="Sebzeleri küp doğrayın.&#10;Güveç kabına dizip kısık ateşte pişirin."
-                  style={{
-                    width: '100%',
-                    marginTop: '8px',
-                    padding: '12px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #cbd5e1',
-                    fontFamily: 'inherit',
-                    fontSize: '0.88rem',
-                  }}
+                  placeholder={'Örn:\nPatlıcanları alacalı soyup kızartın.\nKıymayı soğanla kavurun.\nFırında 20 dakika pişirin.'}
                 />
 
                 <button type="submit" className="primary-cta-btn mt-3">
@@ -1637,6 +1739,11 @@ export function App() {
         onAddMissingToShoppingList={addMissingToShoppingList}
         pantryItems={pantry}
         onTogglePantryIngredient={toggleIngredient}
+        onDeleteCustomRecipe={
+          selectedMatchedRecipe && customRecipeIds.has(selectedMatchedRecipe.recipe.id)
+            ? deleteCustomRecipe
+            : undefined
+        }
       />
     </div>
   );

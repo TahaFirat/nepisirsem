@@ -22,7 +22,9 @@ import {
   Sparkles,
   SkipBack,
   SkipForward,
+  Trash2,
 } from 'lucide-react';
+import { getIngredientIconUrl } from '../utils/ingredientIcons';
 import type { MatchedRecipe } from '../types/recipe';
 import {
   scaleRecipeIngredients,
@@ -60,6 +62,7 @@ interface RecipeDetailModalProps {
   ) => void;
   pantryItems: string[];
   onTogglePantryIngredient?: (name: string) => void;
+  onDeleteCustomRecipe?: (recipeId: string) => void;
 }
 
 const PORTION_NUMBERS = [1, 2, 4, 6, 8, 12];
@@ -73,6 +76,7 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   onAddMissingToShoppingList,
   pantryItems,
   onTogglePantryIngredient,
+  onDeleteCustomRecipe,
 }) => {
   const [servings, setServings] = useState<number>(defaultServings || 4);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -349,6 +353,21 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             >
               <Share2 size={19} />
             </button>
+            {onDeleteCustomRecipe && (
+              <button
+                type="button"
+                className="circle-action-btn"
+                onClick={() => {
+                  if (window.confirm(`"${recipe.title}" tarifini defterinizden silmek istiyor musunuz?`)) {
+                    triggerNativeHaptic('warning');
+                    onDeleteCustomRecipe(recipe.id);
+                  }
+                }}
+                title="Tarifimi Sil"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
             <button
               type="button"
               className="circle-action-btn close-btn"
@@ -498,18 +517,31 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     <div className="ing-status-icon">
                       {inPantry ? <Check size={15} /> : <AlertCircle size={15} />}
                     </div>
+                    {getIngredientIconUrl(ing.name) && (
+                      <img
+                        className="ing-row-icon"
+                        src={getIngredientIconUrl(ing.name)!}
+                        alt=""
+                        loading="lazy"
+                        width={26}
+                        height={26}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
                     <div className="ing-info">
                       <span className="ing-name">
                         {ing.name.charAt(0).toUpperCase() + ing.name.slice(1)}
                       </span>
                       <span className="ing-note">
                         {inPantry ? '✅ Kilerde Var' : '⚠️ Kilerde Yok (Eksik)'}
-                        {ing.note ? ` • ${ing.note}` : ''}
+                        {ing.note && ing.note !== ing.formattedMeasure ? ` • ${ing.note}` : ''}
                       </span>
                     </div>
                     <div className="ing-measure-badge">
                       <strong className="measure-primary">{ing.formattedMeasure}</strong>
-                      {ing.metricEquivalent && (
+                      {ing.metricEquivalent && ing.formattedMeasure !== 'Göz kararı' && (
                         <span className="measure-metric">{ing.metricEquivalent}</span>
                       )}
                     </div>
