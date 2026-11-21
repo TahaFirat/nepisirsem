@@ -1,10 +1,12 @@
 """Açık lisanslı Türk tarif veri setlerinden (104bit MIT, mmkocak Apache-2.0)
 uygulamaya uygun, kiler ile %100 eşleşen, temizlenmiş Türk tarifi arşivi üretir.
 Çıktı: public/data/recipes-tr.json (kompakt)"""
+import html
 import json
 import os
 import re
 import sys
+import unicodedata
 from collections import Counter
 
 DS = r"C:\Users\Taha\.gemini\antigravity\brain\e9820afa-d56d-4ebf-907d-50845aafbd13\scratch\ds"
@@ -17,6 +19,8 @@ table = json.load(open(os.path.join(DS, "ingredients_table.json"), encoding="utf
 
 
 def lower_tr(s: str) -> str:
+    s = html.unescape(str(s or ""))
+    s = unicodedata.normalize("NFC", s)
     return s.replace("I", "ı").replace("İ", "i").lower().replace("\u0307", "")
 
 
@@ -30,73 +34,91 @@ for it in table["items"]:
 EXTRA = {
     "sıvıyağ": "sıvı yağ", "sıvı yağı": "sıvı yağ", "ayçiçek yağı": "sıvı yağ", "ayçiçeği yağı": "sıvı yağ",
     "mısırözü yağı": "sıvı yağ", "mısır özü yağı": "sıvı yağ", "kızartma yağı": "sıvı yağ", "yağ": "sıvı yağ",
-    "zeytin yağı": "zeytinyağı", "sızma zeytinyağı": "zeytinyağı", "tere yağı": "tereyağı", "tereyağ": "tereyağı",
-    "esmer şeker": "şeker", "şeker": "şeker", "toz kırmızı biber": "pul biber", "kırmızı pul biber": "pul biber",
-    "pul biberi": "pul biber", "kırmızı biber salçası": "salça", "acı biber salçası": "salça", "tatlı biber salçası": "salça",
-    "çiğ krema": "krema", "sıvı krema": "krema", "süt kreması": "krema", "yemeklik krema": "krema",
-    "yumurta beyazı": "yumurta", "yumurtanın sarısı": "yumurta", "yumurtanın beyazı": "yumurta", "yumurta": "yumurta",
+    "zeytin yağı": "zeytinyağı", "sızma zeytinyağı": "zeytinyağı",
+    "tere yağı": "tereyağı", "tereyağ": "tereyağı", "tereayağı": "tereyağı", "tereçağı": "tereyağı", "tereçağ": "tereyağı",
+    "teremyağ": "tereyağı", "teremyağı": "tereyağı",
+    "esmer şeker": "şeker", "tozşeker": "şeker", "şeker": "şeker", "pulbiber": "pul biber", "kırmızı pulbiber": "pul biber",
+    "toz kırmızı biber": "pul biber", "kırmızı pul biber": "pul biber", "pul biberi": "pul biber",
+    "kırmızı biber salçası": "salça", "acı biber salçası": "salça", "tatlı biber salçası": "salça",
+    "çiğ krema": "krema", "sıvı krema": "krema", "sıvı krem": "krema", "süt kreması": "krema", "yemeklik krema": "krema",
+    "yumurta beyazı": "yumurta", "yumurtanın sarısı": "yumurta", "yumurtanın beyazı": "yumurta", "yumurt sarısı": "yumurta", "yumurta": "yumurta",
     "ceviz içi": "ceviz", "fındık içi": "fındık", "iç fındık": "fındık", "iç ceviz": "ceviz", "toz ceviz": "ceviz",
     "parmesan": "kaşar peyniri", "kaşar": "kaşar peyniri", "rendelenmiş kaşar": "kaşar peyniri", "çedar": "kaşar peyniri",
     "cheddar": "kaşar peyniri", "dil peyniri": "künefe peyniri", "tost peyniri": "kaşar peyniri", "ezine peyniri": "beyaz peynir",
     "feta": "beyaz peynir", "lor": "lor peyniri", "krem peynir": "labne", "labne peyniri": "labne",
     "dana kuşbaşı": "kuşbaşı et", "kemikli et": "kuşbaşı et", "dana et": "kuşbaşı et", "kırmızı et": "kuşbaşı et",
-    "et": "kuşbaşı et", "kuzu eti": "kuzu kuşbaşı", "kuzu kuşbaşı": "kuzu kuşbaşı", "kuzu incik": "kuzu kol",
+    "et": "kuşbaşı et", "kavurma": "kavurma", "hindi": "hindi eti", "hindi göğüs": "hindi eti",
+    "kuzu eti": "kuzu kuşbaşı", "kuzu kuşbaşı": "kuzu kuşbaşı", "kuzu incik": "kuzu kol",
     "kıyma": "kıyma", "yağlı kıyma": "kıyma", "az yağlı kıyma": "kıyma", "dana kıyması": "kıyma",
     "tavuk göğüs": "tavuk göğsü", "tavuk eti": "tavuk göğsü", "tavuk fileto": "tavuk göğsü", "piliç": "tavuk göğsü",
     "tavuk kanadı": "tavuk but", "tavuk kanat": "tavuk but", "tavuk budu": "tavuk but", "tavuk bonfile": "tavuk göğsü",
     "baget": "tavuk but", "kanat": "tavuk but",
     "domates püresi": "domates", "konserve domates": "domates", "çeri domates": "domates", "domates suyu": "domates",
-    "kapya": "kırmızı biber", "kapya biberi": "kırmızı biber", "köz biber": "kırmızı biber", "közlenmiş biber": "kırmızı biber",
+    "kapya": "kırmızı biber", "kapyabiber": "kırmızı biber", "kapya biberi": "kırmızı biber", "köz biber": "kırmızı biber",
+    "közlenmiş biber": "kırmızı biber", "kırmızıbiber": "kırmızı biber",
     "çarliston": "yeşil biber", "dolmalık": "yeşil biber", "sivri": "yeşil biber", "yeşilbiber": "yeşil biber",
     "sıcak su": "su", "ılık su": "su", "soğuk su": "su", "kaynar su": "su", "kaynamış su": "su", "su": "su",
     "et suyu": "su", "tavuk suyu": "su", "ılık süt": "süt", "soğuk süt": "süt", "süt": "süt",
     "buğday unu": "un", "beyaz un": "un", "kepekli un": "un", "tam buğday unu": "un", "mısır nişastası": "nişasta",
     "buğday nişastası": "nişasta", "vanilin": "vanilya", "şekerli vanilin": "vanilya", "vanilya özütü": "vanilya",
     "kuru maya": "maya", "yaş maya": "maya", "instant maya": "maya", "kabartma": "kabartma tozu",
-    "limon suyu": "limon", "limon kabuğu": "limon", "limon rendesi": "limon", "portakal kabuğu": "portakal",
-    "portakal suyu": "portakal", "domates salçası": "salça", "biber salçası": "salça",
+    "limon suyu": "limon", "limon kabuğu": "limon", "limon rendesi": "limon", "limon tuzu": "limon",
+    "portakal kabuğu": "portakal", "portakal suyu": "portakal", "domates salçası": "salça", "biber salçası": "salça",
     "bitter çikolata": "çikolata", "sütlü çikolata": "çikolata", "damla çikolata": "çikolata", "kuvertür": "çikolata",
     "beyaz çikolata": "çikolata", "kakao": "kakao", "bisküvi": "petibör bisküvi", "petibör": "petibör bisküvi",
-    "yulaf": "yulaf ezmesi", "kırmızı mercimek": "kırmızı mercimek", "mercimek": "kırmızı mercimek",
-    "şehriye": "arpa şehriye", "tel şehriye": "arpa şehriye", "yufka": "hazır yufka", "milföy": "milföy hamuru",
-    "kuru üzüm": "üzüm", "siyah üzüm": "üzüm", "kayısı": "kuru kayısı", "incir": "kuru incir",
+    "kedi dili": "kedi dili bisküvi", "nutella": "fındık kreması", "sarelle": "fındık kreması", "çikolata kreması": "fındık kreması",
+    "reçel": "reçel", "marmelat": "reçel", "türk kahvesi": "kahve", "granül kahve": "kahve", "nescafe": "kahve",
+    "demli çay": "çay", "siyah çay": "çay", "yulaf": "yulaf ezmesi", "kırmızı mercimek": "kırmızı mercimek",
+    "mercimek": "kırmızı mercimek", "şehriye": "arpa şehriye", "tel şehriye": "arpa şehriye", "yufka": "hazır yufka",
+    "milföy": "milföy hamuru", "kuru üzüm": "üzüm", "siyah üzüm": "üzüm", "kayısı": "kuru kayısı", "incir": "kuru incir",
     "siyah zeytin": "zeytin", "yeşil zeytin": "zeytin", "kültür mantarı": "mantar", "istiridye mantarı": "mantar",
     "taze fasulye": "taze fasulye", "çalı fasulye": "taze fasulye", "dolmalık biber": "yeşil biber",
     "ton balığı": "ton balığı konservesi", "haşhaş": "haşhaş ezmesi", "elma sirkesi": "sirke", "üzüm sirkesi": "sirke",
     "soda": "maden suyu", "sade soda": "maden suyu", "çörekotu": "çörek otu", "kara lahana": "kara lahana",
+    "kırmızı lahana": "kırmızı lahana", "mor lahana": "kırmızı lahana", "turp": "turp",
     "frenk soğanı": "taze soğan", "yeşil soğan": "taze soğan", "mor soğan": "soğan", "arpacık": "soğan",
-    "kuru nane": "nane", "taze nane": "taze nane", "fesleğen": "reyhan", "roka": "roka", "dereotu": "dereotu",
-    "maydanoz": "maydanoz", "kişniş": "maydanoz", "biberiye": "defne yaprağı", "muskat": "yenibahar",
-    "karbonat": "karbonat", "pudra şekeri": "pudra şekeri", "krem şanti": "krem şanti", "şanti": "krem şanti",
+    "kuru nane": "nane", "taze nane": "taze nane", "fesleğen": "reyhan", "roka": "roka", "dereotu": "dereotu", "dere otu": "dereotu",
+    "maydanoz": "maydanoz", "kişniş": "kişniş", "biberiye": "biberiye", "muskat": "muskat", "rezene": "rezene", "anason": "rezene",
+    "kakule": "kakule", "çemen": "çemen", "çemen otu": "çemen", "acı sos": "acı sos",
+    "karbonat": "karbonat", "pudra şekeri": "pudra şekeri", "krem şanti": "krem şanti", "kremşanti": "krem şanti",
+    "krem santi": "krem şanti", "şanti": "krem şanti", "süzmeyoğurt": "yoğurt",
     "hindistan cevizi": "hindistan cevizi", "irmik": "irmik", "galeta unu": "galeta unu", "nişasta": "nişasta",
     "mısır unu": "mısır unu", "pirinç unu": "pirinç unu", "bulgur": "pilavlık bulgur", "pilavlık bulgur": "pilavlık bulgur",
-    "köftelik bulgur": "köftelik bulgur", "ince bulgur": "köftelik bulgur", "basmati pirinç": "pirinç", "baldo pirinç": "pirinç",
-    "osmancık pirinç": "pirinç", "pirinç": "pirinç", "patates": "patates", "tatlı patates": "patates",
-    "karabiber": "karabiber", "kimyon": "kimyon", "kekik": "kekik", "tarçın": "tarçın", "sumak": "sumak",
-    "zerdeçal": "zerdeçal", "köri": "köri", "zencefil": "zencefil", "tuz": "tuz", "kaya tuzu": "tuz", "deniz tuzu": "tuz",
-    "isot": "pul biber", "yenibahar": "yenibahar", "karanfil": "karanfil", "mahlep": "mahlep", "susam": "susam",
-    "damla sakızı": "mahlep", "sakız": "mahlep", "safran": "zerdeçal", "nar ekşisi": "nar ekşisi", "pekmez": "pekmez",
-    "üzüm pekmezi": "pekmez", "keçiboynuzu pekmezi": "pekmez", "bal": "bal", "tahin": "tahin", "mayonez": "mayonez",
-    "ketçap": "ketçap", "hardal": "hardal", "soya sosu": "soya sosu", "gül suyu": "gül suyu", "turşu": "salatalık turşusu",
-    "kornişon": "salatalık turşusu", "sucuk": "sucuk", "pastırma": "pastırma", "sosis": "sosis", "salam": "sosis",
-    "jambon": "sosis", "hamsi": "hamsi", "somon": "somon", "levrek": "levrek", "çipura": "çupra", "karides": "karides",
-    "kalamar": "kalamar", "midye": "karides", "ciğer": "kuzu ciğeri", "işkembe": "işkembe", "süzme yoğurt": "yoğurt",
-    "yoğurt": "yoğurt", "kaymak": "kaymak", "tereyağı": "tereyağı", "margarin": "tereyağı", "labne": "labne",
-    "ekmek": "bayat ekmek içi", "bayat ekmek": "bayat ekmek içi", "ekmek içi": "bayat ekmek içi", "lavaş": "lavaş ekmeği",
-    "pide": "pide ekmeği", "tortilla": "lavaş ekmeği", "kadayıf": "tel kadayıf", "güllaç": "güllaç yaprağı",
-    "baklavalık yufka": "baklavalık yufka", "erişte": "erişte", "makarna": "makarna", "mantı": "makarna",
-    "nohut": "nohut", "kuru fasulye": "kuru fasulye", "barbunya": "barbunya", "börülce": "börülce", "bakla": "bakla",
-    "bezelye": "bezelye", "mısır": "mısır konservesi", "havuç": "havuç", "kabak": "kabak", "patlıcan": "patlıcan",
-    "ıspanak": "ıspanak", "pırasa": "pırasa", "lahana": "beyaz lahana", "kırmızı lahana": "beyaz lahana",
+    "köftelik bulgur": "köftelik bulgur", "ince bulgur": "köftelik bulgur", "kuskus": "kuskus", "kinoa": "kinoa",
+    "chia": "chia tohumu", "chia tohumu": "chia tohumu", "keten tohumu": "keten tohumu",
+    "basmati pirinç": "pirinç", "baldo pirinç": "pirinç", "osmancık pirinç": "pirinç", "pirinç": "pirinç",
+    "patates": "patates", "tatlı patates": "patates", "karabiber": "karabiber", "kimyon": "kimyon",
+    "kekik": "kekik", "tarçın": "tarçın", "sumak": "sumak", "zerdeçal": "zerdeçal", "köri": "köri",
+    "zencefil": "zencefil", "tuz": "tuz", "kaya tuzu": "tuz", "deniz tuzu": "tuz", "isot": "pul biber",
+    "yenibahar": "yenibahar", "karanfil": "karanfil", "mahlep": "mahlep", "susam": "susam",
+    "damla sakızı": "damla sakızı", "sakız": "damla sakızı", "safran": "safran", "nar ekşisi": "nar ekşisi",
+    "pekmez": "pekmez", "üzüm pekmezi": "pekmez", "keçiboynuzu pekmezi": "pekmez", "bal": "bal", "tahin": "tahin",
+    "mayonez": "mayonez", "ketçap": "ketçap", "hardal": "hardal", "soya sosu": "soya sosu", "soya sos": "soya sosu",
+    "gül suyu": "gül suyu", "turşu": "salatalık turşusu", "kornişon": "salatalık turşusu",
+    "sucuk": "sucuk", "pastırma": "pastırma", "sosis": "sosis", "salam": "sosis", "jambon": "sosis",
+    "hamsi": "hamsi", "somon": "somon", "levrek": "levrek", "çipura": "çupra", "karides": "karides",
+    "kalamar": "kalamar", "midye": "karides", "ciğer": "kuzu ciğeri", "işkembe": "işkembe",
+    "süzme yoğurt": "yoğurt", "yoğurt": "yoğurt", "kaymak": "kaymak", "tereyağı": "tereyağı", "margarin": "tereyağı", "labne": "labne",
+    "ekmek": "bayat ekmek içi", "bayat ekmek": "bayat ekmek içi", "ekmek içi": "bayat ekmek içi",
+    "lavaş": "lavaş ekmeği", "pide": "pide ekmeği", "tortilla": "lavaş ekmeği", "kadayıf": "tel kadayıf",
+    "güllaç": "güllaç yaprağı", "baklavalık yufka": "baklavalık yufka", "erişte": "erişte", "eriste": "erişte",
+    "makarna": "makarna", "mantı": "makarna", "nohut": "nohut", "kuru fasulye": "kuru fasulye",
+    "barbunya": "barbunya", "börülce": "börülce", "bakla": "bakla", "bezelye": "bezelye",
+    "mısır": "mısır konservesi", "konservemısır": "mısır konservesi", "havuç": "havuç", "kabak": "kabak",
+    "patlıcan": "patlıcan", "ıspanak": "ıspanak", "pırasa": "pırasa", "lahana": "beyaz lahana",
     "karnabahar": "karnabahar", "brokoli": "brokoli", "kereviz": "kereviz", "enginar": "enginar", "bamya": "bamya",
     "semizotu": "semizotu", "pazı": "pazı", "marul": "marul", "göbek marul": "marul", "salatalık": "salatalık",
     "pancar": "pancar", "kırmızı pancar": "pancar", "avokado": "avokado", "balkabağı": "balkabağı", "bal kabağı": "balkabağı",
-    "asma yaprağı": "asma yaprağı", "yaprak": "asma yaprağı", "elma": "elma", "armut": "ayva", "ayva": "ayva",
+    "asma yaprağı": "asma yaprağı", "yaprak": "asma yaprağı", "elma": "elma", "armut": "armut", "ayva": "ayva",
+    "şeftali": "şeftali", "nektarin": "şeftali", "kivi": "kivi", "ananas": "ananas", "kavun": "kavun", "karpuz": "kavun",
+    "hurma": "hurma", "kestane": "kestane", "frambuaz": "frambuaz", "ahududu": "frambuaz", "böğürtlen": "frambuaz", "yaban mersini": "frambuaz",
     "muz": "muz", "çilek": "çilek", "vişne": "vişne", "kiraz": "vişne", "nar": "nar", "portakal": "portakal",
     "mandalina": "portakal", "limon": "limon", "erik": "erik", "üzüm": "üzüm", "kuş üzümü": "kuş üzümü",
     "antep fıstığı": "antep fıstığı", "fıstık": "antep fıstığı", "yer fıstığı": "yer fıstığı", "çam fıstığı": "çam fıstığı",
-    "badem": "badem", "fındık": "fındık", "ceviz": "ceviz", "kuru kayısı": "kuru kayısı", "kuru incir": "kuru incir",
-    "zeytin": "zeytin", "sarımsak": "sarımsak", "soğan": "soğan", "domates": "domates", "salça": "salça",
+    "badem": "badem", "fındık": "fındık", "ceviz": "ceviz", "ay çekirdeği": "ay çekirdeği", "kabak çekirdeği": "ay çekirdeği",
+    "kuru kayısı": "kuru kayısı", "kuru incir": "kuru incir", "zeytin": "zeytin",
+    "sarımsak": "sarımsak", "sarimsak": "sarımsak", "sarmısak": "sarımsak",
+    "soğan": "soğan", "domates": "domates", "salça": "salça",
 }
 for k, v in EXTRA.items():
     PHRASES[lower_tr(k)] = v
@@ -214,9 +236,14 @@ FOREIGN = re.compile(
     r"fettuccine|fettucine|penne|carbonara|alfredo|bolonez|pesto|gnocchi|ravioli|tagliatelle|chili|teriyaki|"
     r"sezar|caesar|hot dog|sandviç|club|enchilada|mac and|cheddar|panna cotta|crumble|cupcake|eclair|ekler|"
     r"churros|creme|crème|brulee|tart|mousse|muss|parfe|cheesecake|pudding|puding|bagel|scone|cinnabon|"
-    r"tavuk kanat sos|barbekü|bbq|wrap|kinoa|chia|keto|vegan|protein|glutensiz|diyet|fit |light)"
+    r"tavuk kanat sos|barbekü|bbq|wrap|keto|vegan|protein|glutensiz|diyet|fit |light|\+\s*\d+\s*ay\b|\b\d+\s*aylık\b)"
 )
 JUNK = re.compile(r"(http|www\.|\.com|instagram|youtube|abone|videomuz|videolu|kanal|link|tıklay|nefis yemek|sitemiz|tarifimizi beğen|yorum)")
+CLICKBAIT_TITLE = re.compile(
+    r"(dillere destan|denemeyen kalmasın|bildiklerinizi unutun|bir dilim asla|yemelere doy|şifa deposu|tam bir şifa|"
+    r"rekor kıran|olay tarif|favoriniz olacak|kapış kapış|parmak yedirten|müptelası|bayılacaksınız|"
+    r"^\s*[bcçdfgğhjklmnprsştvyz]\s+|^[a-zçğıöşü]{1,2}\s+kolay\b)"
+)
 
 CAT_RULES = [
     ("corba", r"çorba"),
@@ -267,27 +294,71 @@ def pick_category(title, ds_cat, ing_names):
     return None
 
 
-NOISE_WORDS = r"(tarifi|tarif|nefis|pratik|kolay|enfes|harika|muhteşem|efsane|leziz|lezzetli|bol|tam kıvamında|ev yapımı|" \
-              r"evde|anne usulü|lokanta usulü|pastane usulü|videolu|şahane|mükemmel|en güzel|en kolay|kesin tutan|garantili|" \
-              r"yumuşacık|pamuk gibi|çıtır çıtır|5 dakikada|10 dakikada|15 dakikada|20 dakikada|30 dakikada|dakikada)"
+TITLE_NOISE = {
+    "tarif", "tarifi", "tarifim", "tarifleri", "nefis", "pratik", "kolay", "enfes", "harika", "muhtesem", "muhteşem",
+    "efsane", "leziz", "lezzet", "lezzeti", "lezzetli", "bol", "tam", "kıvamında", "kivaminda", "ev", "yapımı", "yapimi",
+    "nasıl", "yapılır", "yapilir", "evde", "anne", "lokanta", "pastane", "videolu", "şahane", "sahane", "mükemmel",
+    "en", "güzel", "guzel", "kesin", "garanti", "garantili", "yumuşacık", "yumusacik", "pamuk", "çıtır", "citir",
+    "dakika", "dakikada", "dk", "usulü", "usulu", "tadında", "tadinda", "gibi", "ölçülü", "olculu", "orjinal", "orijinal",
+    "hakiki", "gerçek", "gercek", "müthiş", "muthis", "özel", "ozel", "klasik", "geleneksel", "meşhur", "meshur", "ünlü",
+    "süper", "hızlı", "kıyır", "puf", "tane", "yemek", "yemeği", "yemegi", "tatlı", "tatlısı", "tatlisi", "tatlım",
+    "ve", "ile", "için", "icin", "bir", "fırın", "fırında", "kesilmeyen", "ipek", "nar", "dağılmayan", "dayanılmaz",
+    "altın", "günü", "altin", "gunu", "süzme", "kızarmış", "brownie", "sade", "evdeki", "hali", "hal", "hazır", "hazir",
+    "lavaştan", "lavaşla", "ekmek", "banmalık", "sünger", "şerbet", "çeken", "kabaran", "çekmeyen", "bolca", "mis", "tadı",
+    "yapım", "balon", "puff", "pofuduk", "dev", "tavada", "harikası", "vazgeçilmez", "bayatlamayan", "şipşak", "zahmetsiz",
+    "dillere", "destan", "denemeyen", "kalmasın", "misali", "yalancı", "masterchef", "orijinali", "ağızda", "dağılan",
+    "yeni", "farklı", "değişik", "çok", "bildiklerinizi", "unutun", "püf", "noktaları", "noktalarıyla", "malzemeli",
+    "yapılabilen", "beğendiği", "favori", "şeklinde", "annemin", "babaannemin", "ustasından", "sırrı", "efsanesi",
+    "tadıyla", "görünümüyle", "sunumuyla", "efsanevi", "bayılacaksınız",
+}
+
+
+def stem_tr(w: str) -> str:
+    for suf in ("ları", "leri", "ması", "mesi", "yemeği", "tatlısı", "çorbası", "salatası", "böreği", "mezesi", "mesinin", "masının"):
+        if len(w) > len(suf) + 2 and w.endswith(suf):
+            w = w[:-len(suf)]
+            break
+    for suf in ("sı", "si", "su", "sü", "nın", "nin", "dan", "den", "ım", "im", "um", "üm", "ı", "i", "u", "ü", "m"):
+        if len(w) > len(suf) + 3 and w.endswith(suf):
+            w = w[:-len(suf)]
+            break
+    if len(w) > 3 and w.endswith("ğ"):
+        w = w[:-1] + "k"
+    if len(w) > 3 and w.endswith("b"):
+        w = w[:-1] + "p"
+    if len(w) > 3 and w.endswith("d"):
+        w = w[:-1] + "t"
+    if len(w) > 3 and w.endswith("c"):
+        w = w[:-1] + "ç"
+    return w
 
 
 def title_key(title):
-    t = lower_tr(title)
-    t = re.sub(r"\([^)]*\)", " ", t)
-    t = re.sub(NOISE_WORDS, " ", t)
-    t = re.sub(r"[^a-zçğıöşü ]", " ", t)
-    words = [w for w in t.split() if w not in ("ve", "ile", "usulü", "tadında", "gibi")]
-    return " ".join(words)
+    lt = lower_tr(title)
+    lt = re.sub(r"\([^)]*\)", " ", lt)
+    lt = re.sub(r"[^a-zçğıöşü0-9 ]", " ", lt)
+    lt = re.sub(r"(?:^|\s)yağ\s+çekmeyen(?=\s|$)", " ", lt)
+    if re.search(r"(?:^|\s)(yağlama|yağlaması|yağlamasının|yağlısı|şebit)(?=\s|$)", lt) and not re.search(r"(?:^|\s)(patlıcan|biber|krep|mısır|kabak)(?=\s|$)", lt):
+        return "kayseri yağlama"
+    ws = []
+    for w in lt.split():
+        if w in TITLE_NOISE or len(w) <= 1 or w.isdigit():
+            continue
+        st = stem_tr(w)
+        if st and st not in TITLE_NOISE and len(st) > 1 and not st.isdigit():
+            ws.append(st)
+    return " ".join(sorted(set(ws)))
 
 
 def clean_title(title):
-    t = re.sub(r"\s+", " ", title).strip(" .-!")
-    t = re.sub(r"(?i)\s*tarifi\s*$", "", t)
-    t = re.sub(r"(?i)^(nefis|enfes|harika|muhteşem|efsane|pratik|kolay)\s+", "", t)
+    t = html.unescape(unicodedata.normalize("NFC", str(title or "")))
+    t = re.sub(r"\([^)]*\)", " ", t)
+    t = re.sub(r"\s+", " ", t).strip(" .-!?")
+    t = re.sub(r"(?i)\s*(nasıl yapılır\??|tarifi(\s*nasıl\s*yapılır)?)\s*$", "", t).strip(" .-!?")
+    t = re.sub(r"(?i)^(nefis|enfes|harika|muhteşem|efsane|pratik|kolay|yalancı|masterchef|gerçek|orjinal|orijinal|tam ölçülü)\s+", "", t)
     if t.isupper() or t.islower():
         t = " ".join(w[:1].upper() + w[1:] for w in lower_tr(t).split())
-    return t[:70].strip()
+    return t[:62].strip()
 
 
 def clean_steps(steps):
@@ -324,10 +395,13 @@ def consider(title, ds_cat, ing_lines, steps, servings, prep, cook, src_rank):
     if not title or len(title) < 3:
         return
     lt = lower_tr(title)
-    if FOREIGN.search(lt) or JUNK.search(lt):
+    if FOREIGN.search(lt) or JUNK.search(lt) or CLICKBAIT_TITLE.search(lt):
         stats["foreign_or_junk"] += 1
         return
-    key = title_key(title)
+    ct = clean_title(title)
+    if len(ct) < 4:
+        return
+    key = title_key(ct)
     if not key or key in existing:
         stats["dup_existing"] += 1
         return
@@ -337,7 +411,8 @@ def consider(title, ds_cat, ing_lines, steps, servings, prep, cook, src_rank):
         return
     ings, seen = [], set()
     for line in ing_lines or []:
-        parts = re.split(r",| ve |\s/\s", line) if (isinstance(line, str) and len(line) < 60 and not re.search(r"\d", line)) else [line]
+        line_clean = html.unescape(unicodedata.normalize("NFC", line)) if isinstance(line, str) else line
+        parts = re.split(r",| ve |\s/\s", line_clean) if (isinstance(line_clean, str) and len(line_clean) < 60 and not re.search(r"\d", line_clean)) else [line_clean]
         for part in parts:
             r = parse_ingredient(part) if isinstance(part, str) else part
             if r is None:
@@ -356,13 +431,15 @@ def consider(title, ds_cat, ing_lines, steps, servings, prep, cook, src_rank):
     if not cat:
         stats["no_cat"] += 1
         return
-    score = src_rank * 10 + min(len(steps), 10) + min(len(ings), 12) * 0.5
+    # Temiz, kısa ve otantik isimlere öncelik ver
+    spam_penalty = 5 if ("?" in title or "!" in title or "(" in title or len(title) > 55) else 0
+    score = src_rank * 12 + min(len(steps), 10) + min(len(ings), 12) * 0.5 - spam_penalty - len(ct) * 0.05
     try:
         sv = int(re.findall(r"\d+", str(servings))[0]) if servings else 4
     except Exception:
         sv = 4
     rec = {
-        "t": clean_title(title), "c": cat, "s": max(1, min(12, sv)),
+        "t": ct, "c": cat, "s": max(1, min(12, sv)),
         "p": max(5, min(240, prep or 15)), "k": max(0, min(480, cook if cook is not None else 25)),
         "i": ings, "st": steps, "_score": score,
     }

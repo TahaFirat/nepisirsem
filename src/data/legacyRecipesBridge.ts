@@ -587,6 +587,60 @@ function normalizeTurkishKey(text: string): string {
     .trim();
 }
 
+const DISH_SIG_NOISE = new Set([
+  'tarif', 'tarifi', 'tarifim', 'tarifleri', 'nefis', 'pratik', 'kolay', 'enfes', 'harika', 'muhtesem', 'muhteşem',
+  'efsane', 'leziz', 'lezzet', 'lezzeti', 'lezzetli', 'bol', 'tam', 'kıvamında', 'ev', 'yapımı', 'yapimi',
+  'nasıl', 'yapılır', 'evde', 'anne', 'lokanta', 'pastane', 'videolu', 'şahane', 'mükemmel', 'en',
+  'güzel', 'kesin', 'garanti', 'garantili', 'yumuşacık', 'pamuk', 'çıtır', 'dakika', 'dakikada', 'dk',
+  'usulü', 'tadında', 'gibi', 'ölçülü', 'orjinal', 'orijinal', 'hakiki', 'gerçek', 'müthiş', 'özel',
+  'klasik', 'geleneksel', 'meşhur', 'ünlü', 'süper', 'hızlı', 'kıyır', 'puf', 'tane', 'yemek',
+  'yemeği', 'tatlı', 'tatlısı', 'tatlım', 've', 'ile', 'için', 'bir', 'fırın', 'fırında', 'kesilmeyen',
+  'ipek', 'nar', 'dağılmayan', 'dayanılmaz', 'altın', 'günü', 'altin', 'gunu', 'süzme', 'kızarmış',
+  'brownie', 'sade', 'evdeki', 'hali', 'hal', 'hazır', 'lavaştan', 'lavaşla', 'ekmek', 'banmalık',
+  'sünger', 'şerbet', 'çeken', 'kabaran', 'çekmeyen', 'bolca', 'mis', 'tadı', 'yapım', 'balon',
+  'puff', 'pofuduk', 'dev', 'tavada', 'harikası', 'vazgeçilmez', 'bayatlamayan', 'şipşak', 'zahmetsiz',
+]);
+
+function stemTrToken(word: string): string {
+  let w = word;
+  for (const suf of ['ları', 'leri', 'ması', 'mesi', 'yemeği', 'tatlısı', 'çorbası', 'salatası', 'böreği', 'mezesi', 'mesinin', 'masının']) {
+    if (w.length > suf.length + 2 && w.endsWith(suf)) {
+      w = w.slice(0, -suf.length);
+      break;
+    }
+  }
+  for (const suf of ['sı', 'si', 'su', 'sü', 'nın', 'nin', 'dan', 'den', 'ım', 'im', 'um', 'üm', 'ı', 'i', 'u', 'ü', 'm']) {
+    if (w.length > suf.length + 3 && w.endsWith(suf)) {
+      w = w.slice(0, -suf.length);
+      break;
+    }
+  }
+  if (w.length > 3 && w.endsWith('ğ')) w = `${w.slice(0, -1)}k`;
+  if (w.length > 3 && w.endsWith('b')) w = `${w.slice(0, -1)}p`;
+  if (w.length > 3 && w.endsWith('d')) w = `${w.slice(0, -1)}t`;
+  if (w.length > 3 && w.endsWith('c')) w = `${w.slice(0, -1)}ç`;
+  return w;
+}
+
+export function canonicalDishKey(title: string): string {
+  const lt = normalizeTurkishKey(title).replace(/(?:^|\s)yağ\s+çekmeyen(?=\s|$)/g, ' ');
+  if (
+    /(?:^|\s)(yağlama|yağlaması|yağlamasının|yağlısı|şebit)(?=\s|$)/.test(lt) &&
+    !/(?:^|\s)(patlıcan|biber|krep|mısır|kabak)(?=\s|$)/.test(lt)
+  ) {
+    return 'kayseri yağlama';
+  }
+  const tokens: string[] = [];
+  for (const raw of lt.split(/\s+/)) {
+    if (!raw || raw.length <= 1 || /^\d+$/.test(raw) || DISH_SIG_NOISE.has(raw)) continue;
+    const st = stemTrToken(raw);
+    if (st && st.length > 1 && !/^\d+$/.test(st) && !DISH_SIG_NOISE.has(st)) {
+      tokens.push(st);
+    }
+  }
+  return Array.from(new Set(tokens)).sort().join(' ') || lt;
+}
+
 const CITY_INFERENCE_RULES: Array<{ label: string; keywords: string[] }> = [
   {
     label: '🇹🇷 Kayseri',
@@ -706,11 +760,31 @@ export function getFullRecipeArchive(): Recipe[] {
   if (cachedFullArchive) return cachedFullArchive;
 
   const existingTitles = new Set<string>();
+  const existingCanonical = new Map<string, Recipe>();
+
+  const tryRegister = (recipe: Recipe): boolean => {
+    const clean = normalizeTurkishKey(recipe.title);
+    const canon = canonicalDishKey(recipe.title);
+    if (existingTitles.has(clean) || existingCanonical.has(canon)) {
+      const kept = existingCanonical.get(canon);
+      if (
+        kept &&
+        (kept.countryLabel === '🇹🇷 Türk Mutfağı' || !kept.countryLabel) &&
+        recipe.countryLabel &&
+        recipe.countryLabel !== '🇹🇷 Türk Mutfağı'
+      ) {
+        kept.countryLabel = recipe.countryLabel;
+      }
+      return false;
+    }
+    existingTitles.add(clean);
+    existingCanonical.set(canon, recipe);
+    return true;
+  };
 
   // 1. Ana Detaylı Türk Mutfağı Tarifleri
   const taggedCoreRecipes: Recipe[] = ALL_RECIPES.map((r) => {
-    existingTitles.add(normalizeTurkishKey(r.title));
-    return {
+    const item: Recipe = {
       ...r,
       ingredients: normalizeAndDeduplicateIngredients(
         r.ingredients.map((ing) => ({
@@ -722,26 +796,35 @@ export function getFullRecipeArchive(): Recipe[] {
       cuisineOrigin: r.cuisineOrigin || 'turkish',
       countryLabel: inferTurkishCityLabel(r.title, r.countryLabel),
     };
+    tryRegister(item);
+    return item;
   });
 
   // 2. 81 İlden Tescilli Anadolu Yöresel Yemekleri + Nefis Ev Klasikleri
   const regionalRecipes: Recipe[] = [];
   REGIONAL_ANATOLIAN_CATALOG.forEach((reg, idx) => {
+    const origin = detectCuisineOrigin(reg.region, reg.cat);
+    const candidateLabel = origin === 'world' ? `🌍 ${reg.region}` : `🇹🇷 ${reg.region}`;
     const cleanTitle = normalizeTurkishKey(reg.title);
-    if (existingTitles.has(cleanTitle)) return;
-    existingTitles.add(cleanTitle);
+    const canon = canonicalDishKey(reg.title);
+    if (existingTitles.has(cleanTitle) || existingCanonical.has(canon)) {
+      const kept = existingCanonical.get(canon);
+      if (kept && kept.countryLabel === '🇹🇷 Türk Mutfağı' && origin === 'turkish') {
+        kept.countryLabel = candidateLabel;
+      }
+      return;
+    }
 
     const visual = resolveDishVisualTheme(reg.title, reg.cat);
     const emoji = visual.iconEmoji || CATEGORY_EMOJI[reg.cat] || '🍲';
-    const origin = detectCuisineOrigin(reg.region, reg.cat);
 
-    regionalRecipes.push({
+    const item: Recipe = {
       id: `yoresel-${idx + 1}`,
       title: reg.title,
       subtitle: `${reg.region} Mutfağından Tam Ölçülü & Adım Adım Açıklamalı Tarif`,
       category: reg.cat,
       cuisineOrigin: origin,
-      countryLabel: origin === 'world' ? `🌍 ${reg.region}` : `🇹🇷 ${reg.region}`,
+      countryLabel: candidateLabel,
       emoji,
       image: '',
       prepTime: 20,
@@ -756,19 +839,20 @@ export function getFullRecipeArchive(): Recipe[] {
         reg.cat
       ),
       steps: buildAccurateTurkishSteps(reg.title, reg.cat, reg.ings),
-    });
+    };
+    if (tryRegister(item)) regionalRecipes.push(item);
   });
 
   // 3. Dünya Mutfağı Tariflerini Dönüştür
   const worldRecipes: Recipe[] = [];
   WORLD_CUISINE_RAW.forEach((w, idx) => {
     const cleanTitle = normalizeTurkishKey(w.title);
-    if (existingTitles.has(cleanTitle)) return;
-    existingTitles.add(cleanTitle);
+    const canon = canonicalDishKey(w.title);
+    if (existingTitles.has(cleanTitle) || existingCanonical.has(canon)) return;
 
     const cat = w.cat as Exclude<RecipeCategory, 'tumu'>;
     const visual = resolveDishVisualTheme(w.title, cat);
-    worldRecipes.push({
+    const item: Recipe = {
       id: `world-${idx + 1}`,
       title: w.title,
       subtitle: `${w.country} Mutfağından Evde Kolayca Yapabileceğiniz Tam Ölçülü Tarif`,
@@ -798,15 +882,16 @@ export function getFullRecipeArchive(): Recipe[] {
         instruction: inst,
         timerMinutes: sIdx === 1 ? Math.max(5, Math.round(w.cook * 0.6)) : undefined,
       })),
-    });
+    };
+    if (tryRegister(item)) worldRecipes.push(item);
   });
 
   // 4. V10'daki Geleneksel Türk Mutfağı Tariflerini 5 Aşamalı Detaylı Rehberle Dönüştür
   const convertedTurkish: Recipe[] = [];
   COMPACT_TURKISH_ARCHIVE.forEach((tr) => {
     const cleanTitle = normalizeTurkishKey(tr.title);
-    if (existingTitles.has(cleanTitle)) return;
-    existingTitles.add(cleanTitle);
+    const canon = canonicalDishKey(tr.title);
+    if (existingTitles.has(cleanTitle) || existingCanonical.has(canon)) return;
 
     const visual = resolveDishVisualTheme(tr.title, tr.cat);
     const emoji = visual.iconEmoji || CATEGORY_EMOJI[tr.cat] || '🍲';
@@ -821,7 +906,7 @@ export function getFullRecipeArchive(): Recipe[] {
       };
     }
 
-    convertedTurkish.push({
+    const item: Recipe = {
       id: tr.id,
       title: tr.title,
       subtitle: `${visual.patternLabel} • ${visual.cookwareHint}`,
@@ -842,7 +927,8 @@ export function getFullRecipeArchive(): Recipe[] {
         tr.cat
       ),
       steps: baseSteps,
-    });
+    };
+    if (tryRegister(item)) convertedTurkish.push(item);
   });
 
   cachedFullArchive = [
@@ -990,9 +1076,18 @@ export function loadExtendedTurkishArchive(onChunk?: (soFar: Recipe[]) => void):
             // tek parça bozuksa diğerlerine devam et
           }
         }
-        if (all.length > 0) {
-          onChunk?.(all.slice());
+        // Core ve arşiv arası olası kopyaları da kesin olarak ele
+        const coreKeys = new Set(getFullRecipeArchive().map((r) => canonicalDishKey(r.title)));
+        const uniqueAll = all.filter((r) => {
+          const k = canonicalDishKey(r.title);
+          if (coreKeys.has(k)) return false;
+          coreKeys.add(k);
+          return true;
+        });
+        if (uniqueAll.length > 0) {
+          onChunk?.(uniqueAll);
         }
+        return uniqueAll;
       } catch {
         extendedArchivePromise = null;
       }
